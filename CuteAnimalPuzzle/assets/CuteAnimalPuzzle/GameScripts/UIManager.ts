@@ -1,4 +1,8 @@
 import { _decorator, Component, Prefab, Node } from 'cc';
+import { UIMainMenu } from './UIMainMenu';
+import { UISelectPuzzle } from './UISelectPuzzle';
+import { UISolvePuzzle } from './UISolvePuzzle';
+import { UIFinishPuzzle } from './UIFinishPuzzle';
 const { ccclass, property } = _decorator;
 
 @ccclass('UIManager')
@@ -8,6 +12,8 @@ export class UIManager extends Component {
     // UIMainMenu/btnPlay：点击打开选择拼图和难度界面
     @property(Node)
     public UIMainMenu: Node = null;
+    
+    private uiMainMenu: UIMainMenu = null;
 
     // 拼图预制体
     // itemSelectPuzzle/sprPuzzle：拼图图片
@@ -22,16 +28,28 @@ export class UIManager extends Component {
     // UISelectPuzzle/ScrollView/view/content/itemSelectPuzzleX~itemSelectPuzzleY：点击根据拼图和难度，打开解决拼图界面
     @property(Node)
     public UISelectPuzzle: Node = null;
+    
+    private uiSelectPuzzle: UISelectPuzzle = null;
 
     // 解决拼图界面
     // UISolvePuzzle/btnBack：点击返回选择拼图和难度界面
     @property(Node)
     public UISolvePuzzle: Node = null;
+    
+    private uiSolvePuzzle: UISolvePuzzle = null;
 
     @property(Node)
     public UIFinishPuzzle: Node = null;
+    
+    private uiFinishPuzzle: UIFinishPuzzle = null;
 
     start() {
+        // 获取UI组件引用
+        this.uiMainMenu = this.UIMainMenu?.getComponent(UIMainMenu);
+        this.uiSelectPuzzle = this.UISelectPuzzle?.getComponent(UISelectPuzzle);
+        this.uiSolvePuzzle = this.UISolvePuzzle?.getComponent(UISolvePuzzle);
+        this.uiFinishPuzzle = this.UIFinishPuzzle?.getComponent(UIFinishPuzzle);
+        
         // 初始化界面
         this.showMainMenuOnly();
     }
@@ -46,10 +64,11 @@ export class UIManager extends Component {
         this.UISelectPuzzle.active = false;
         this.UISolvePuzzle.active = false;
         this.UIFinishPuzzle.active = false;
-        // 播放主菜单动画
-        // if (this.animMainMenu) {
-            // this.animMainMenu.play('AnimShowMainMenu');
-        // }
+        
+        // 调用界面显示回调
+        if (this.uiMainMenu) {
+            this.uiMainMenu.onShow();
+        }
     }
 
     // 显示选择拼图和难度界面，隐藏其他界面
@@ -58,10 +77,11 @@ export class UIManager extends Component {
         this.UIMainMenu.active = false;
         this.UISolvePuzzle.active = false;
         this.UIFinishPuzzle.active = false;
-        // 播放主菜单动画
-        // if (this.animMainMenu) {
-            // this.animMainMenu.play('AnimShowMainMenu');
-        // }
+        
+        // 调用界面显示回调
+        if (this.uiSelectPuzzle) {
+            this.uiSelectPuzzle.onShow();
+        }
     }
     // 显示解决拼图界面，隐藏其他界面
     public showSolvePuzzleOnly(): void {
@@ -69,14 +89,24 @@ export class UIManager extends Component {
         this.UIMainMenu.active = false;
         this.UISelectPuzzle.active = false;
         this.UIFinishPuzzle.active = false;
+        
+        // 调用界面显示回调
+        if (this.uiSolvePuzzle) {
+            this.uiSolvePuzzle.onShow();
+        }
     }
 
-    // 显示解决拼图界面，隐藏其他界面
+    // 显示完成拼图界面，隐藏其他界面
     public showFinishPuzzleOnly(): void {
         this.UIFinishPuzzle.active = true;
         this.UISolvePuzzle.active = false;
         this.UIMainMenu.active = false;
         this.UISelectPuzzle.active = false;
+        
+        // 调用界面显示回调
+        if (this.uiFinishPuzzle) {
+            this.uiFinishPuzzle.onShow();
+        }
     }  
 
 }
