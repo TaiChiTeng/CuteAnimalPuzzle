@@ -28,6 +28,9 @@ export class UIManager extends Component {
     @property(Node)
     public UISolvePuzzle: Node = null;
 
+    @property(Node)
+    public UIFinishPuzzle: Node = null;
+
     start() {
         // 初始化界面
         this.showMainMenuOnly();
@@ -42,6 +45,7 @@ export class UIManager extends Component {
         this.UIMainMenu.active = true;
         this.UISelectPuzzle.active = false;
         this.UISolvePuzzle.active = false;
+        this.UIFinishPuzzle.active = false;
         // 播放主菜单动画
         // if (this.animMainMenu) {
             // this.animMainMenu.play('AnimShowMainMenu');
@@ -53,6 +57,7 @@ export class UIManager extends Component {
         this.UISelectPuzzle.active = true;
         this.UIMainMenu.active = false;
         this.UISolvePuzzle.active = false;
+        this.UIFinishPuzzle.active = false;
         // 播放主菜单动画
         // if (this.animMainMenu) {
             // this.animMainMenu.play('AnimShowMainMenu');
@@ -63,7 +68,16 @@ export class UIManager extends Component {
         this.UISolvePuzzle.active = true;
         this.UIMainMenu.active = false;
         this.UISelectPuzzle.active = false;
+        this.UIFinishPuzzle.active = false;
     }
+
+    // 显示解决拼图界面，隐藏其他界面
+    public showFinishPuzzleOnly(): void {
+        this.UIFinishPuzzle.active = true;
+        this.UISolvePuzzle.active = false;
+        this.UIMainMenu.active = false;
+        this.UISelectPuzzle.active = false;
+    }  
 
 }
 
