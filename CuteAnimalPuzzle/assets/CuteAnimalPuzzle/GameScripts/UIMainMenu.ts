@@ -40,10 +40,14 @@ export class UIMainMenu extends Component {
      * 开始游戏按钮点击事件
      */
     private onPlayButtonClick(): void {
-        console.log('点击开始游戏按钮');
+        console.log('[UIMainMenu] 点击开始游戏按钮');
+        console.log('[UIMainMenu] UIManager实例状态:', this.uiManager ? '已初始化' : '未初始化');
         
         if (this.uiManager) {
+            console.log('[UIMainMenu] 准备切换到选择拼图界面');
             this.uiManager.showSelectPuzzleOnly();
+        } else {
+            console.error('[UIMainMenu] UIManager未初始化，无法切换界面');
         }
     }
 
@@ -51,13 +55,17 @@ export class UIMainMenu extends Component {
      * 声音开关按钮点击事件
      */
     private onSoundButtonClick(): void {
-        console.log('点击声音开关按钮');
+        console.log('[UIMainMenu] 点击声音开关按钮');
         
         const gameData = GameDataPuzzle.instance;
         if (gameData) {
             const currentSoundState = gameData.getSoundEnabled();
+            console.log('[UIMainMenu] 当前声音状态:', currentSoundState);
             gameData.setSoundEnabled(!currentSoundState);
             this.updateSoundButtonState();
+            console.log('[UIMainMenu] 声音开关状态已更改为:', !currentSoundState);
+        } else {
+            console.error('[UIMainMenu] GameDataPuzzle实例未找到');
         }
     }
 

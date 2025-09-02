@@ -43,10 +43,13 @@ export class UIFinishPuzzle extends Component {
      * 返回按钮点击事件
      */
     private onBackButtonClick(): void {
-        console.log('点击返回选择拼图界面按钮');
+        console.log('[UIFinishPuzzle] 点击返回选择拼图界面按钮');
         
         if (this.uiManager) {
+            console.log('[UIFinishPuzzle] 准备切换到选择拼图界面');
             this.uiManager.showSelectPuzzleOnly();
+        } else {
+            console.error('[UIFinishPuzzle] UIManager未初始化，无法切换界面');
         }
     }
 
@@ -54,7 +57,8 @@ export class UIFinishPuzzle extends Component {
      * 保存图片按钮点击事件
      */
     private onSaveButtonClick(): void {
-        console.log('点击保存拼图图片按钮');
+        console.log('[UIFinishPuzzle] 点击保存拼图图片按钮');
+        console.log('[UIFinishPuzzle] 当前拼图ID:', this.currentPuzzleId);
         
         // 在微信小游戏环境中保存图片到相册
         this.savePuzzleImageToAlbum();
@@ -64,7 +68,8 @@ export class UIFinishPuzzle extends Component {
      * 分享按钮点击事件
      */
     private onShareButtonClick(): void {
-        console.log('点击分享到微信好友按钮');
+        console.log('[UIFinishPuzzle] 点击分享到微信好友按钮');
+        console.log('[UIFinishPuzzle] 当前拼图ID:', this.currentPuzzleId);
         
         // 分享到微信好友（设计文档中提到已实现）
         this.shareToWechatFriends();

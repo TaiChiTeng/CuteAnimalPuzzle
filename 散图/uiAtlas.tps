@@ -98,7 +98,7 @@
             <key>freeSizeMode</key>
             <enum type="AlgorithmSettings::AlgorithmFreeSizeMode">Best</enum>
             <key>sizeConstraints</key>
-            <enum type="AlgorithmSettings::SizeConstraints">AnySize</enum>
+            <enum type="AlgorithmSettings::SizeConstraints">WordAligned</enum>
             <key>forceSquared</key>
             <false/>
             <key>maxRects</key>
@@ -221,6 +221,21 @@
                 <key>scale9FromFile</key>
                 <false/>
             </struct>
+            <key type="filename">texBtnIconDownload.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0.5,0.5</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>21,19,42,37</rect>
+                <key>scale9Paddings</key>
+                <rect>21,19,42,37</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
             <key type="filename">texBtnIconPlay.png</key>
             <struct type="IndividualSpriteSettings">
                 <key>pivotPoint</key>
@@ -233,6 +248,66 @@
                 <rect>16,16,32,32</rect>
                 <key>scale9Paddings</key>
                 <rect>16,16,32,32</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
+            <key type="filename">texBtnIconPuzzle.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0.5,0.5</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>21,21,42,42</rect>
+                <key>scale9Paddings</key>
+                <rect>21,21,42,42</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
+            <key type="filename">texBtnIconShare.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0.5,0.5</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>19,20,37,39</rect>
+                <key>scale9Paddings</key>
+                <rect>19,20,37,39</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
+            <key type="filename">texBtnIconSoundOff.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0.5,0.5</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>24,18,48,35</rect>
+                <key>scale9Paddings</key>
+                <rect>24,18,48,35</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
+            <key type="filename">texBtnIconSoundOn.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0.5,0.5</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>23,18,46,35</rect>
+                <key>scale9Paddings</key>
+                <rect>23,18,46,35</rect>
                 <key>scale9FromFile</key>
                 <false/>
             </struct>
@@ -251,6 +326,22 @@
                 <key>scale9FromFile</key>
                 <false/>
             </struct>
+            <key type="filename">texBtnIconTipHide.png</key>
+            <key type="filename">texBtnIconTipShow.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0.5,0.5</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>17,22,33,44</rect>
+                <key>scale9Paddings</key>
+                <rect>17,22,33,44</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
         </map>
         <key>fileLists</key>
         <map type="SpriteSheetMap">
@@ -266,6 +357,13 @@
                     <filename>texBtnIconBack.png</filename>
                     <filename>texBtnIconPlay.png</filename>
                     <filename>texBtnIconTip.png</filename>
+                    <filename>texBtnIconPuzzle.png</filename>
+                    <filename>texBtnIconShare.png</filename>
+                    <filename>texBtnIconSoundOff.png</filename>
+                    <filename>texBtnIconSoundOn.png</filename>
+                    <filename>texBtnIconTipHide.png</filename>
+                    <filename>texBtnIconTipShow.png</filename>
+                    <filename>texBtnIconDownload.png</filename>
                 </array>
             </struct>
         </map>

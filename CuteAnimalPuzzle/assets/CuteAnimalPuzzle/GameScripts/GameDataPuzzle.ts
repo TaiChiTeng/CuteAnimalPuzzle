@@ -86,14 +86,17 @@ export class GameDataPuzzle extends Component {
      * 加载存档数据
      */
     private loadSaveData(): void {
+        console.log('[GameDataPuzzle] 开始加载存档数据');
         try {
             const saveDataStr = sys.localStorage.getItem(this.SAVE_KEY);
             if (saveDataStr) {
                 this._saveData = JSON.parse(saveDataStr);
-                console.log('存档数据加载成功:', this._saveData);
+                console.log('[GameDataPuzzle] 存档数据加载成功:', this._saveData);
+            } else {
+                console.log('[GameDataPuzzle] 未找到存档数据，将使用默认数据');
             }
         } catch (error) {
-            console.error('加载存档数据失败:', error);
+            console.error('[GameDataPuzzle] 加载存档数据失败:', error);
             this._saveData = null;
         }
     }
@@ -102,12 +105,13 @@ export class GameDataPuzzle extends Component {
      * 保存存档数据
      */
     public saveData(): void {
+        console.log('[GameDataPuzzle] 开始保存存档数据:', this._saveData);
         try {
             const saveDataStr = JSON.stringify(this._saveData);
             sys.localStorage.setItem(this.SAVE_KEY, saveDataStr);
-            console.log('存档数据保存成功');
+            console.log('[GameDataPuzzle] 存档数据保存成功');
         } catch (error) {
-            console.error('保存存档数据失败:', error);
+            console.error('[GameDataPuzzle] 保存存档数据失败:', error);
         }
     }
 
@@ -155,17 +159,24 @@ export class GameDataPuzzle extends Component {
      * 完成拼图，解锁下一个拼图
      */
     public completePuzzle(puzzleId: number): void {
+        console.log('[GameDataPuzzle] 完成拼图:', puzzleId);
         if (this._saveData) {
             // 设置当前拼图为已完成
             this.setPuzzleStatus(puzzleId, PuzzleStatus.COMPLETED);
+            console.log('[GameDataPuzzle] 拼图', puzzleId, '状态已设置为完成');
             
             // 解锁下一个拼图
             const nextPuzzleId = puzzleId + 1;
             if (nextPuzzleId <= this.getTotalPuzzleCount()) {
                 if (this.getPuzzleStatus(nextPuzzleId) === PuzzleStatus.LOCKED) {
                     this.setPuzzleStatus(nextPuzzleId, PuzzleStatus.UNLOCKED);
+                    console.log('[GameDataPuzzle] 下一个拼图', nextPuzzleId, '已解锁');
                 }
+            } else {
+                console.log('[GameDataPuzzle] 已完成所有拼图！');
             }
+        } else {
+            console.error('[GameDataPuzzle] 存档数据未初始化，无法完成拼图');
         }
     }
 

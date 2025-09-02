@@ -59,10 +59,13 @@ export class UISelectPuzzle extends Component {
      * 返回按钮点击事件
      */
     private onBackButtonClick(): void {
-        console.log('点击返回主菜单按钮');
+        console.log('[UISelectPuzzle] 点击返回主菜单按钮');
         
         if (this.uiManager) {
+            console.log('[UISelectPuzzle] 准备切换到主菜单界面');
             this.uiManager.showMainMenuOnly();
+        } else {
+            console.error('[UISelectPuzzle] UIManager未初始化，无法切换界面');
         }
     }
 
@@ -72,23 +75,31 @@ export class UISelectPuzzle extends Component {
     private onDifficultyToggle(toggle: Toggle): void {
         if (!toggle.isChecked) return;
         
+        console.log('[UISelectPuzzle] 难度切换被触发');
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) {
+            console.error('[UISelectPuzzle] GameDataPuzzle实例未找到');
+            return;
+        }
+        
         let difficulty: PuzzleDifficulty;
         
         if (toggle === this.toggleEasy) {
             difficulty = PuzzleDifficulty.EASY;
-            console.log('选择简单难度 (9张拼图)');
+            console.log('[UISelectPuzzle] 选择简单难度 (9张拼图)');
         } else if (toggle === this.toggleMedium) {
             difficulty = PuzzleDifficulty.MEDIUM;
-            console.log('选择中等难度 (16张拼图)');
+            console.log('[UISelectPuzzle] 选择中等难度 (16张拼图)');
         } else if (toggle === this.toggleHard) {
             difficulty = PuzzleDifficulty.HARD;
-            console.log('选择困难难度 (25张拼图)');
+            console.log('[UISelectPuzzle] 选择困难难度 (25张拼图)');
+        } else {
+            console.warn('[UISelectPuzzle] 未知的难度切换按钮');
+            return;
         }
         
-        const gameData = GameDataPuzzle.instance;
-        if (gameData && difficulty !== undefined) {
-            gameData.setCurrentDifficulty(difficulty);
-        }
+        gameData.setCurrentDifficulty(difficulty);
+        console.log('[UISelectPuzzle] 难度已设置为:', difficulty);
     }
 
     /**

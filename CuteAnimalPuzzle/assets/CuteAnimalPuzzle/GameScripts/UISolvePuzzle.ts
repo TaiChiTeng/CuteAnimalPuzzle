@@ -64,10 +64,13 @@ export class UISolvePuzzle extends Component {
      * 返回按钮点击事件
      */
     private onBackButtonClick(): void {
-        console.log('点击返回选择拼图界面按钮');
+        console.log('[UISolvePuzzle] 点击返回选择拼图界面按钮');
         
         if (this.uiManager) {
+            console.log('[UISolvePuzzle] 准备切换到选择拼图界面');
             this.uiManager.showSelectPuzzleOnly();
+        } else {
+            console.error('[UISolvePuzzle] UIManager未初始化，无法切换界面');
         }
     }
 
@@ -75,10 +78,15 @@ export class UISolvePuzzle extends Component {
      * 提示按钮点击事件
      */
     private onHintButtonClick(): void {
-        console.log('点击提示按钮');
+        console.log('[UISolvePuzzle] 点击提示按钮');
         
+        // 显示/隐藏提示图片
         if (this.hintImage) {
-            this.hintImage.active = !this.hintImage.active;
+            const newState = !this.hintImage.active;
+            this.hintImage.active = newState;
+            console.log('[UISolvePuzzle] 提示图片状态:', newState ? '显示' : '隐藏');
+        } else {
+            console.error('[UISolvePuzzle] 提示图片节点未找到');
         }
     }
 
@@ -263,7 +271,8 @@ export class UISolvePuzzle extends Component {
      * 拼图切片开始拖拽
      */
     private onPieceDragStart(piece: PuzzlePiece): void {
-        console.log(`拼图切片 ${piece.pieceIndex} 开始拖拽`);
+        console.log(`[UISolvePuzzle] 开始拖拽拼图片段: ${piece.pieceIndex}`);
+        console.log(`[UISolvePuzzle] 拼图片段正确位置: 行${piece.correctRow} 列${piece.correctCol}`);
     }
 
     /**
@@ -285,25 +294,83 @@ export class UISolvePuzzle extends Component {
         
         if (correctSlot && piece.getDistanceToPosition(correctSlot.getWorldPosition()) < this.snapDistance) {
             // 拖拽到正确位置
+            console.log(`拼图切片 ${piece.pieceIndex} 放置到正确位置`);
             this.placePieceInCorrectPosition(piece, correctSlot);
             this.checkPuzzleCompletion();
         } else {
-            // 检查是否在拖拽区域内
-            if (this.dragArea && piece.isInArea(this.dragArea)) {
+            // 检查是否拖拽回列表区域
+            if (this.pieceScrollView && piece.isInArea(this.pieceScrollView.node)) {
+                // 拖拽回列表，插入回列表
+                console.log(`拼图切片 ${piece.pieceIndex} 拖拽回列表`);
+                this.insertPieceBackToList(piece);
+            } else if (this.dragArea && piece.isInArea(this.dragArea)) {
                 // 停留在拖拽区域
-                console.log('拼图切片停留在拖拽区域');
+                console.log(`拼图切片 ${piece.pieceIndex} 停留在拖拽区域`);
+                // 保持在当前位置，但确保在拖拽区域内
+                this.constrainPieceInDragArea(piece);
             } else {
-                // 拖回原位置
+                // 拖拽到其他区域，拖回原位置
+                console.log(`拼图切片 ${piece.pieceIndex} 拖拽到无效区域，返回原位置`);
                 piece.resetToOriginalPosition();
             }
         }
     }
 
     /**
+     * 将拼图切片插入回列表
+     */
+    private insertPieceBackToList(piece: PuzzlePiece): void {
+        if (!this.pieceContent) return;
+        
+        // 将拼图切片重新添加到列表中
+        piece.node.setParent(this.pieceContent);
+        
+        // 重新设置在列表中的位置（可以根据需要调整插入位置）
+        const insertIndex = Math.min(piece.pieceIndex, this.pieceContent.children.length);
+        piece.node.setSiblingIndex(insertIndex);
+        
+        // 重置位置
+        piece.node.position = Vec3.ZERO;
+        
+        console.log(`拼图切片 ${piece.pieceIndex} 已插入回列表，位置: ${insertIndex}`);
+    }
+    
+    /**
+     * 限制拼图切片在拖拽区域内
+     */
+    private constrainPieceInDragArea(piece: PuzzlePiece): void {
+        if (!this.dragArea) return;
+        
+        const dragAreaTransform = this.dragArea.getComponent(UITransform);
+        if (!dragAreaTransform) return;
+        
+        const dragAreaWorldPos = this.dragArea.getWorldPosition();
+        const dragAreaSize = dragAreaTransform.contentSize;
+        const pieceWorldPos = piece.node.getWorldPosition();
+        
+        // 计算限制后的位置
+        const halfWidth = dragAreaSize.width / 2;
+        const halfHeight = dragAreaSize.height / 2;
+        
+        const constrainedX = Math.max(
+            dragAreaWorldPos.x - halfWidth,
+            Math.min(dragAreaWorldPos.x + halfWidth, pieceWorldPos.x)
+        );
+        
+        const constrainedY = Math.max(
+            dragAreaWorldPos.y - halfHeight,
+            Math.min(dragAreaWorldPos.y + halfHeight, pieceWorldPos.y)
+        );
+        
+        piece.node.setWorldPosition(new Vec3(constrainedX, constrainedY, pieceWorldPos.z));
+        console.log(`拼图切片 ${piece.pieceIndex} 位置已限制在拖拽区域内`);
+    }
+
+    /**
      * 将拼图切片放置到正确位置
      */
     private placePieceInCorrectPosition(piece: PuzzlePiece, slot: Node): void {
-        console.log(`拼图切片 ${piece.pieceIndex} 放置到正确位置`);
+        console.log(`[UISolvePuzzle] 将拼图片段 ${piece.pieceIndex} 放置到正确位置`);
         
         piece.moveToPosition(slot, Vec3.ZERO);
         
@@ -311,12 +378,16 @@ export class UISolvePuzzle extends Component {
         piece.node.off(Input.EventType.TOUCH_START);
         piece.node.off(Input.EventType.TOUCH_MOVE);
         piece.node.off(Input.EventType.TOUCH_END);
+        
+        console.log(`[UISolvePuzzle] 拼图片段 ${piece.pieceIndex} 已成功放置到正确位置`);
     }
 
     /**
      * 检查拼图是否完成
      */
     private checkPuzzleCompletion(): void {
+        console.log('[UISolvePuzzle] 检查拼图完成状态');
+        
         let completedPieces = 0;
         
         for (const piece of this.puzzlePieces) {
@@ -328,9 +399,10 @@ export class UISolvePuzzle extends Component {
             }
         }
         
-        console.log(`已完成拼图切片: ${completedPieces}/${this.puzzlePieces.length}`);
+        console.log(`[UISolvePuzzle] 拼图完成进度: ${completedPieces}/${this.puzzlePieces.length}`);
         
         if (completedPieces === this.puzzlePieces.length) {
+            console.log('[UISolvePuzzle] 拼图已完成！准备切换到完成界面');
             this.onPuzzleCompleted();
         }
     }
