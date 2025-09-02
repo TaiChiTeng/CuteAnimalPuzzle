@@ -1,18 +1,36 @@
-import { _decorator, Component, Node } from 'cc';
+import { _decorator, Component, Prefab, Node } from 'cc';
 const { ccclass, property } = _decorator;
 
 @ccclass('UIManager')
 export class UIManager extends Component {
     
+    // 主菜单界面
+    // UIMainMenu/btnPlay：点击打开选择拼图和难度界面
     @property(Node)
     public UIMainMenu: Node = null;
 
+    // 拼图预制体
+    // itemSelectPuzzle/sprPuzzle：拼图图片
+    @property(Prefab)
+    public itemSelectPuzzle: Prefab = null; 
+
+    // 选择拼图和难度界面
+    // UISelectPuzzle/btnBack：点击返回主菜单界面
+    // UISelectPuzzle/ToggleGroup/Toggle1：点击标记为9张拼图难度
+    // UISelectPuzzle/ToggleGroup/Toggle2：点击标记为16张拼图难度
+    // UISelectPuzzle/ToggleGroup/Toggle3：点击标记为25张拼图难度
+    // UISelectPuzzle/ScrollView/view/content/itemSelectPuzzleX~itemSelectPuzzleY：点击根据拼图和难度，打开解决拼图界面
     @property(Node)
     public UISelectPuzzle: Node = null;
+
+    // 解决拼图界面
+    // UISolvePuzzle/btnBack：点击返回选择拼图和难度界面
     @property(Node)
     public UISolvePuzzle: Node = null;
-    start() {
 
+    start() {
+        // 初始化界面
+        this.showMainMenuOnly();
     }
 
     update(deltaTime: number) {
