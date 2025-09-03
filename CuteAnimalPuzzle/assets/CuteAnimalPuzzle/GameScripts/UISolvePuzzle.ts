@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform, Vec3, Layout, Input, Color } from 'cc';
+import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite} from 'cc';
 import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzlePiece } from './PuzzlePiece';
@@ -75,25 +75,6 @@ export class UISolvePuzzle extends Component {
         }
      }
      
-
-    
-
-    
-
-    
-
-    
-    /**
-     * 查找根画布节点
-     */
-    private findRootCanvas(): Node {
-        let current = this.node;
-        while (current.parent) {
-            current = current.parent;
-        }
-        return current;
-    }
-
     /**
      * 提示按钮点击事件
      */
@@ -176,54 +157,7 @@ export class UISolvePuzzle extends Component {
      * 创建网格槽位
      */
     private createGridSlots(): void {
-        if (!this.puzzleGrid) return;
-        
-        // 清理现有槽位
-        this.clearGridSlots();
-        
-        const gridTransform = this.puzzleGrid.getComponent(UITransform);
-        if (!gridTransform) return;
-        
-        const gridSize = gridTransform.contentSize;
-        this.slotSize = Math.min(gridSize.width / this.gridCols, gridSize.height / this.gridRows) * 0.95;
-        
-        const startX = -(this.gridCols - 1) * this.slotSize / 2;
-        const startY = (this.gridRows - 1) * this.slotSize / 2;
-        
-        console.log(`[UISolvePuzzle] 创建 ${this.gridRows}x${this.gridCols} 网格，槽位大小: ${this.slotSize}`);
-        
-        for (let row = 0; row < this.gridRows; row++) {
-            for (let col = 0; col < this.gridCols; col++) {
-                const slot = new Node(`Slot_${row}_${col}`);
-                const slotTransform = slot.addComponent(UITransform);
-                slotTransform.setContentSize(this.slotSize, this.slotSize);
-                
-                // 添加背景精灵组件用于显示网格效果
-                const slotSprite = slot.addComponent(Sprite);
-                
-                // 根据棋盘模式设置颜色（相邻网格颜色不同）
-                const isEvenPosition = (row + col) % 2 === 0;
-                const lightColor = new Color(220, 220, 220, 180);  // 浅灰色，半透明
-                const darkColor = new Color(180, 180, 180, 180);   // 深灰色，半透明
-                slotSprite.color = isEvenPosition ? lightColor : darkColor;
-                
-                const x = startX + col * this.slotSize;
-                const y = startY - row * this.slotSize;
-                slot.setPosition(x, y, 0);
-                
-                // 存储槽位的行列信息
-                slot['gridRow'] = row;
-                slot['gridCol'] = col;
-                slot['isEmpty'] = true;  // 标记槽位是否为空
-                
-                this.puzzleGrid.addChild(slot);
-                this.gridSlots.push(slot);
-                
-                console.log(`[UISolvePuzzle] 创建槽位 [${row},${col}] 位置: (${x.toFixed(1)}, ${y.toFixed(1)})`);
-            }
-        }
-        
-        console.log(`[UISolvePuzzle] 网格槽位创建完成，共 ${this.gridSlots.length} 个槽位`);
+        // TODO: 创建网格槽位
     }
 
     /**
@@ -291,82 +225,21 @@ export class UISolvePuzzle extends Component {
      * 打乱拼图切片顺序
      */
     private shufflePieces(): void {
-        const pieces = [...this.puzzlePieces];
-        
-        // Fisher-Yates 洗牌算法
-        for (let i = pieces.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
-        }
-        
-        // 重新排列节点顺序
-        for (let i = 0; i < pieces.length; i++) {
-            pieces[i].node.setSiblingIndex(i);
-        }
+        // TODO: 打乱拼图切片顺序
     }
 
     /**
      * 将拼图切片放置到正确位置
      */
     private placePieceInCorrectPosition(piece: PuzzlePiece, slot: Node): void {
-        console.log(`[UISolvePuzzle] 将拼图片段 ${piece.pieceIndex} 放置到正确位置 [${slot['gridRow']},${slot['gridCol']}]`);
-        
-        // 将拼图切片移动到网格槽位
-        piece.node.setParent(slot);
-        piece.node.setPosition(Vec3.ZERO);
-        
-        // 标记槽位已被占用
-        slot['isEmpty'] = false;
-        slot['occupiedPiece'] = piece;
-        
-        console.log(`[UISolvePuzzle] 拼图片段 ${piece.pieceIndex} 已成功放置到正确位置`);
+        // TODO: 拼图切片的槽位正确则按正确大小放置好
     }
     
-    /**
-     * 高亮正确的槽位
-     */
-    private highlightCorrectSlot(slot: Node, highlight: boolean): void {
-        const slotSprite = slot.getComponent(Sprite);
-        if (!slotSprite) return;
-        
-        if (highlight) {
-            // 高亮效果：使用绿色边框或更亮的颜色
-            const highlightColor = new Color(100, 255, 100, 200);  // 绿色高亮
-            slotSprite.color = highlightColor;
-        } else {
-            // 恢复原始颜色
-            const row = slot['gridRow'];
-            const col = slot['gridCol'];
-            const isEvenPosition = (row + col) % 2 === 0;
-            const lightColor = new Color(220, 220, 220, 180);
-            const darkColor = new Color(180, 180, 180, 180);
-            slotSprite.color = isEvenPosition ? lightColor : darkColor;
-        }
-    }
-
     /**
      * 检查拼图是否完成
      */
     private checkPuzzleCompletion(): void {
-        console.log('[UISolvePuzzle] 检查拼图完成状态');
-        
-        let completedPieces = 0;
-        
-        for (const piece of this.puzzlePieces) {
-            const correctSlotIndex = piece.getCorrectIndex(this.gridCols);
-            const correctSlot = this.gridSlots[correctSlotIndex];
-            
-            if (correctSlot && piece.node.parent === correctSlot) {
-                completedPieces++;
-            }
-        }
-        
-        console.log(`[UISolvePuzzle] 拼图完成进度: ${completedPieces}/${this.puzzlePieces.length}`);
-        
-        if (completedPieces === this.puzzlePieces.length) {
-            console.log('[UISolvePuzzle] 拼图已完成！准备切换到完成界面');
-            this.onPuzzleCompleted();
-        }
+        // TODO: 检查拼图是否完成
     }
 
     /**
@@ -391,24 +264,14 @@ export class UISolvePuzzle extends Component {
      * 清理网格槽位
      */
     private clearGridSlots(): void {
-        for (const slot of this.gridSlots) {
-            if (slot && slot.isValid) {
-                slot.destroy();
-            }
-        }
-        this.gridSlots = [];
+        // TODO: 清理网格槽位
     }
 
     /**
      * 清理拼图切片
      */
     private clearPuzzlePieces(): void {
-        for (const piece of this.puzzlePieces) {
-            if (piece && piece.node && piece.node.isValid) {
-                piece.node.destroy();
-            }
-        }
-        this.puzzlePieces = [];
+        // TODO: 清理拼图切片
     }
 
     update(deltaTime: number) {
