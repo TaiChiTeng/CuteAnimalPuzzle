@@ -231,11 +231,23 @@ export class UISelectPuzzle extends Component {
         console.log('[UISelectPuzzle] 可用拼图ID列表:', availablePuzzleIds);
         console.log('[UISelectPuzzle] 拼图总数:', availablePuzzleIds.length);
         
+        // 过滤掉UNAVAILABLE状态的拼图
+        const displayablePuzzleIds = availablePuzzleIds.filter(puzzleId => {
+            const status = gameData.getPuzzleStatus(puzzleId);
+            const isDisplayable = status !== PuzzleStatus.UNAVAILABLE;
+            if (!isDisplayable) {
+                console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 状态为UNAVAILABLE，跳过显示`);
+            }
+            return isDisplayable;
+        });
+        console.log('[UISelectPuzzle] 过滤后可显示的拼图ID列表:', displayablePuzzleIds);
+        console.log('[UISelectPuzzle] 可显示拼图数量:', displayablePuzzleIds.length);
+        
         // 创建拼图项
         let successCount = 0;
-        for (let i = 0; i < availablePuzzleIds.length; i++) {
-            const puzzleId = availablePuzzleIds[i];
-            console.log(`[UISelectPuzzle] 正在创建拼图项 ${i + 1}/${availablePuzzleIds.length}, ID: ${puzzleId}`);
+        for (let i = 0; i < displayablePuzzleIds.length; i++) {
+            const puzzleId = displayablePuzzleIds[i];
+            console.log(`[UISelectPuzzle] 正在创建拼图项 ${i + 1}/${displayablePuzzleIds.length}, ID: ${puzzleId}`);
             
             const puzzleItem = instantiate(this.itemSelectPuzzlePrefab);
             
@@ -259,7 +271,7 @@ export class UISelectPuzzle extends Component {
             }
         }
         
-        console.log(`[UISelectPuzzle] 拼图列表初始化完成！成功创建 ${successCount}/${availablePuzzleIds.length} 个拼图项`);
+        console.log(`[UISelectPuzzle] 拼图列表初始化完成！成功创建 ${successCount}/${displayablePuzzleIds.length} 个拼图项`);
     }
 
     /**
