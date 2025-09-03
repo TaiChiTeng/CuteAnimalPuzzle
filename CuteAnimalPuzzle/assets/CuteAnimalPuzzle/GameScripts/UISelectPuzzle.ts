@@ -168,6 +168,7 @@ export class UISelectPuzzle extends Component {
     public onShow(): void {
         this.initializeDifficultyToggles();
         this.initializePuzzleList();
+        // 声音按钮状态由UIManager统一更新
     }
 
     /**

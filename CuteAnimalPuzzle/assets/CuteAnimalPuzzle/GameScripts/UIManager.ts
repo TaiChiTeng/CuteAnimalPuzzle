@@ -1,8 +1,9 @@
-import { _decorator, Component, Prefab, Node } from 'cc';
+import { _decorator, Component, Prefab, Node, Button } from 'cc';
 import { UIMainMenu } from './UIMainMenu';
 import { UISelectPuzzle } from './UISelectPuzzle';
 import { UISolvePuzzle } from './UISolvePuzzle';
 import { UIFinishPuzzle } from './UIFinishPuzzle';
+import { GameDataPuzzle } from './GameDataPuzzle';
 const { ccclass, property } = _decorator;
 
 @ccclass('UIManager')
@@ -43,12 +44,43 @@ export class UIManager extends Component {
     
     private uiFinishPuzzle: UIFinishPuzzle = null;
 
+    // 声音控制按钮和图标 - 在各个界面中统一管理
+    @property(Button)
+    public btnSoundMainMenu: Button = null;
+
+    @property(Node)
+    public soundOnIconMainMenu: Node = null;
+
+    @property(Node)
+    public soundOffIconMainMenu: Node = null;
+
+    @property(Button)
+    public btnSoundSelectPuzzle: Button = null;
+
+    @property(Node)
+    public soundOnIconSelectPuzzle: Node = null;
+
+    @property(Node)
+    public soundOffIconSelectPuzzle: Node = null;
+
+    @property(Button)
+    public btnSoundSolvePuzzle: Button = null;
+
+    @property(Node)
+    public soundOnIconSolvePuzzle: Node = null;
+
+    @property(Node)
+    public soundOffIconSolvePuzzle: Node = null;
+
     start() {
         // 获取UI组件引用
         this.uiMainMenu = this.UIMainMenu?.getComponent(UIMainMenu);
         this.uiSelectPuzzle = this.UISelectPuzzle?.getComponent(UISelectPuzzle);
         this.uiSolvePuzzle = this.UISolvePuzzle?.getComponent(UISolvePuzzle);
         this.uiFinishPuzzle = this.UIFinishPuzzle?.getComponent(UIFinishPuzzle);
+        
+        // 绑定声音按钮事件
+        this.initializeSoundButtons();
         
         // 初始化界面
         this.showMainMenuOnly();
@@ -69,6 +101,9 @@ export class UIManager extends Component {
         if (this.uiMainMenu) {
             this.uiMainMenu.onShow();
         }
+        
+        // 更新声音按钮状态
+        this.updateAllSoundButtonStates();
     }
 
     // 显示选择拼图和难度界面，隐藏其他界面
@@ -82,6 +117,9 @@ export class UIManager extends Component {
         if (this.uiSelectPuzzle) {
             this.uiSelectPuzzle.onShow();
         }
+        
+        // 更新声音按钮状态
+        this.updateAllSoundButtonStates();
     }
     // 显示解决拼图界面，隐藏其他界面
     public showSolvePuzzleOnly(): void {
@@ -94,6 +132,9 @@ export class UIManager extends Component {
         if (this.uiSolvePuzzle) {
             this.uiSolvePuzzle.onShow();
         }
+        
+        // 更新声音按钮状态
+        this.updateAllSoundButtonStates();
     }
 
     // 显示完成拼图界面，隐藏其他界面
@@ -107,7 +148,93 @@ export class UIManager extends Component {
         if (this.uiFinishPuzzle) {
             this.uiFinishPuzzle.onShow();
         }
-    }  
+        
+        // 更新声音按钮状态
+        this.updateAllSoundButtonStates();
+    }
+
+    /**
+     * 初始化所有界面的声音按钮事件
+     */
+    private initializeSoundButtons(): void {
+        // 主菜单声音按钮
+        this.btnSoundMainMenu?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
+        
+        // 选择拼图界面声音按钮
+        this.btnSoundSelectPuzzle?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
+        
+        // 解决拼图界面声音按钮
+        this.btnSoundSolvePuzzle?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
+    }
+
+    /**
+     * 声音开关按钮点击事件 - 统一处理所有界面的声音按钮
+     */
+    private onSoundButtonClick(): void {
+        console.log('[UIManager] 点击声音开关按钮');
+        
+        const gameData = GameDataPuzzle.instance;
+        if (gameData) {
+            const currentSoundState = gameData.getSoundEnabled();
+            console.log('[UIManager] 当前声音状态:', currentSoundState);
+            gameData.setSoundEnabled(!currentSoundState);
+            this.updateAllSoundButtonStates();
+            console.log('[UIManager] 声音开关状态已更改为:', !currentSoundState);
+        } else {
+            console.error('[UIManager] GameDataPuzzle实例未找到');
+        }
+    }
+
+    /**
+     * 更新所有界面的声音按钮状态显示
+     */
+    private updateAllSoundButtonStates(): void {
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) return;
+        
+        const soundEnabled = gameData.getSoundEnabled();
+        
+        // 更新主菜单声音按钮状态
+        this.updateSoundButtonState(this.soundOnIconMainMenu, this.soundOffIconMainMenu, soundEnabled);
+        
+        // 更新选择拼图界面声音按钮状态
+        this.updateSoundButtonState(this.soundOnIconSelectPuzzle, this.soundOffIconSelectPuzzle, soundEnabled);
+        
+        // 更新解决拼图界面声音按钮状态
+        this.updateSoundButtonState(this.soundOnIconSolvePuzzle, this.soundOffIconSolvePuzzle, soundEnabled);
+    }
+
+    /**
+     * 更新单个界面的声音按钮状态
+     */
+    private updateSoundButtonState(soundOnIcon: Node, soundOffIcon: Node, soundEnabled: boolean): void {
+        if (soundOnIcon) {
+            soundOnIcon.active = soundEnabled;
+        }
+        
+        if (soundOffIcon) {
+            soundOffIcon.active = !soundEnabled;
+        }
+    }
+
+    /**
+     * 获取声音开关状态 - 供其他组件调用
+     */
+    public getSoundEnabled(): boolean {
+        const gameData = GameDataPuzzle.instance;
+        return gameData ? gameData.getSoundEnabled() : true;
+    }
+
+    /**
+     * 设置声音开关状态 - 供其他组件调用
+     */
+    public setSoundEnabled(enabled: boolean): void {
+        const gameData = GameDataPuzzle.instance;
+        if (gameData) {
+            gameData.setSoundEnabled(enabled);
+            this.updateAllSoundButtonStates();
+        }
+    }
 
 }
 

@@ -101,6 +101,7 @@ export class UISolvePuzzle extends Component {
             
             this.initializePuzzle();
         }
+        // 声音按钮状态由UIManager统一更新
     }
 
     /**
