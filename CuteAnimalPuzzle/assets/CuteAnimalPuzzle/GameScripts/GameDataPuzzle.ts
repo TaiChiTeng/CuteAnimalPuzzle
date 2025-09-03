@@ -67,14 +67,16 @@ export class GameDataPuzzle extends Component {
                 selectedPuzzleId: ''
             };
             
-            // 初始化拼图状态，第一个拼图解锁，其他锁定
+            // 初始化拼图状态，使用配置的初始状态数组
             const totalPuzzles = this.puzzleSpriteFrames.length;
             for (let i = 1; i <= totalPuzzles; i++) {
                 const puzzleId = i.toString();
-                if (i === 1) {
-                    this._saveData.puzzleStatus[puzzleId] = PuzzleStatus.UNLOCKED;
+                const arrayIndex = i - 1; // 数组索引从0开始
+                if (arrayIndex < this.puzzleInitialStatus.length) {
+                    this._saveData.puzzleStatus[puzzleId] = this.puzzleInitialStatus[arrayIndex];
                 } else {
-                    this._saveData.puzzleStatus[puzzleId] = PuzzleStatus.LOCKED;
+                    // 如果没有配置初始状态，默认第一个解锁，其他锁定
+                    this._saveData.puzzleStatus[puzzleId] = i === 1 ? PuzzleStatus.UNLOCKED : PuzzleStatus.LOCKED;
                 }
             }
             

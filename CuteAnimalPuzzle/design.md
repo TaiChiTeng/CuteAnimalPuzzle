@@ -42,6 +42,8 @@
         未解锁的拼图：记录未解锁的拼图id，界面UISelectPuzzle的列表显示这些拼图，这些拼图的按钮要显示未解锁的标志sprLocked
         已解锁未完成的拼图：记录已解锁的拼图id，界面UISelectPuzzle的列表显示这些拼图，这些拼图的按钮要显示未完成的标志sprUnfinished
         已完成的拼图：记录已完成的拼图id，界面UISelectPuzzle的列表显示这些拼图，这些拼图的按钮要显示已完成的标志
+    找不到存档数据时，要按默认配置初始化各拼图的状态
 
-配置
-    可以在Cocos Creator里边，把所有拼图照片逐张拖进去，还需要有可以配置它的初始状态PuzzleStatus。然后代码直接按id1～N来处理。
+默认配置
+    可以在Cocos Creator里边，把所有拼图照片逐张拖进SpriteFrame[]，还需要有可以配置它的初始状态PuzzleStatus[]。
+    然后代码直接按id1～N来处理。
