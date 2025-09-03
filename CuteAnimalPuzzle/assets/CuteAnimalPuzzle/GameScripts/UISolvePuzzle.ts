@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform, Vec3, Layout, Input } from 'cc';
+import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform, Vec3, Layout, Input, Color } from 'cc';
 import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzlePiece } from './PuzzlePiece';
@@ -43,6 +43,7 @@ export class UISolvePuzzle extends Component {
     private slotSize: number = 100;  // 槽位大小
     private snapDistance: number = 50;  // 吸附距离
 
+
     start() {
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
         
@@ -72,6 +73,25 @@ export class UISolvePuzzle extends Component {
         } else {
             console.error('[UISolvePuzzle] UIManager未初始化，无法切换界面');
         }
+     }
+     
+
+    
+
+    
+
+    
+
+    
+    /**
+     * 查找根画布节点
+     */
+    private findRootCanvas(): Node {
+        let current = this.node;
+        while (current.parent) {
+            current = current.parent;
+        }
+        return current;
     }
 
     /**
@@ -165,10 +185,12 @@ export class UISolvePuzzle extends Component {
         if (!gridTransform) return;
         
         const gridSize = gridTransform.contentSize;
-        this.slotSize = Math.min(gridSize.width / this.gridCols, gridSize.height / this.gridRows) * 0.9;
+        this.slotSize = Math.min(gridSize.width / this.gridCols, gridSize.height / this.gridRows) * 0.95;
         
         const startX = -(this.gridCols - 1) * this.slotSize / 2;
         const startY = (this.gridRows - 1) * this.slotSize / 2;
+        
+        console.log(`[UISolvePuzzle] 创建 ${this.gridRows}x${this.gridCols} 网格，槽位大小: ${this.slotSize}`);
         
         for (let row = 0; row < this.gridRows; row++) {
             for (let col = 0; col < this.gridCols; col++) {
@@ -176,14 +198,32 @@ export class UISolvePuzzle extends Component {
                 const slotTransform = slot.addComponent(UITransform);
                 slotTransform.setContentSize(this.slotSize, this.slotSize);
                 
+                // 添加背景精灵组件用于显示网格效果
+                const slotSprite = slot.addComponent(Sprite);
+                
+                // 根据棋盘模式设置颜色（相邻网格颜色不同）
+                const isEvenPosition = (row + col) % 2 === 0;
+                const lightColor = new Color(220, 220, 220, 180);  // 浅灰色，半透明
+                const darkColor = new Color(180, 180, 180, 180);   // 深灰色，半透明
+                slotSprite.color = isEvenPosition ? lightColor : darkColor;
+                
                 const x = startX + col * this.slotSize;
                 const y = startY - row * this.slotSize;
                 slot.setPosition(x, y, 0);
                 
+                // 存储槽位的行列信息
+                slot['gridRow'] = row;
+                slot['gridCol'] = col;
+                slot['isEmpty'] = true;  // 标记槽位是否为空
+                
                 this.puzzleGrid.addChild(slot);
                 this.gridSlots.push(slot);
+                
+                console.log(`[UISolvePuzzle] 创建槽位 [${row},${col}] 位置: (${x.toFixed(1)}, ${y.toFixed(1)})`);
             }
         }
+        
+        console.log(`[UISolvePuzzle] 网格槽位创建完成，共 ${this.gridSlots.length} 个槽位`);
     }
 
     /**
@@ -215,10 +255,7 @@ export class UISolvePuzzle extends Component {
             // 设置拼图切片图片（这里需要根据实际需求实现切片逻辑）
             this.setupPieceSprite(pieceNode, i);
             
-            // 设置拖拽回调
-            puzzlePiece.onDragStart = this.onPieceDragStart.bind(this);
-            puzzlePiece.onDragMove = this.onPieceDragMove.bind(this);
-            puzzlePiece.onDragEnd = this.onPieceDragEnd.bind(this);
+            // TODO: 设置拖拽回调
             
             // 添加到滚动列表
             this.pieceContent.addChild(pieceNode);
@@ -269,118 +306,42 @@ export class UISolvePuzzle extends Component {
     }
 
     /**
-     * 拼图切片开始拖拽
-     */
-    private onPieceDragStart(piece: PuzzlePiece): void {
-        console.log(`[UISolvePuzzle] 开始拖拽拼图片段: ${piece.pieceIndex}`);
-        console.log(`[UISolvePuzzle] 拼图片段正确位置: 行${piece.correctRow} 列${piece.correctCol}`);
-    }
-
-    /**
-     * 拼图切片拖拽移动
-     */
-    private onPieceDragMove(piece: PuzzlePiece, worldPos: Vec3): void {
-        // 可以在这里实现拖拽时的视觉反馈
-    }
-
-    /**
-     * 拼图切片结束拖拽
-     */
-    private onPieceDragEnd(piece: PuzzlePiece, worldPos: Vec3): void {
-        console.log(`拼图切片 ${piece.pieceIndex} 结束拖拽`);
-        
-        // 检查是否拖拽到正确位置
-        const correctSlotIndex = piece.getCorrectIndex(this.gridCols);
-        const correctSlot = this.gridSlots[correctSlotIndex];
-        
-        if (correctSlot && piece.getDistanceToPosition(correctSlot.getWorldPosition()) < this.snapDistance) {
-            // 拖拽到正确位置
-            console.log(`拼图切片 ${piece.pieceIndex} 放置到正确位置`);
-            this.placePieceInCorrectPosition(piece, correctSlot);
-            this.checkPuzzleCompletion();
-        } else {
-            // 检查是否拖拽回列表区域
-            if (this.pieceScrollView && piece.isInArea(this.pieceScrollView.node)) {
-                // 拖拽回列表，插入回列表
-                console.log(`拼图切片 ${piece.pieceIndex} 拖拽回列表`);
-                this.insertPieceBackToList(piece);
-            } else if (this.dragArea && piece.isInArea(this.dragArea)) {
-                // 停留在拖拽区域
-                console.log(`拼图切片 ${piece.pieceIndex} 停留在拖拽区域`);
-                // 保持在当前位置，但确保在拖拽区域内
-                this.constrainPieceInDragArea(piece);
-            } else {
-                // 拖拽到其他区域，拖回原位置
-                console.log(`拼图切片 ${piece.pieceIndex} 拖拽到无效区域，返回原位置`);
-                piece.resetToOriginalPosition();
-            }
-        }
-    }
-
-    /**
-     * 将拼图切片插入回列表
-     */
-    private insertPieceBackToList(piece: PuzzlePiece): void {
-        if (!this.pieceContent) return;
-        
-        // 将拼图切片重新添加到列表中
-        piece.node.setParent(this.pieceContent);
-        
-        // 重新设置在列表中的位置（可以根据需要调整插入位置）
-        const insertIndex = Math.min(piece.pieceIndex, this.pieceContent.children.length);
-        piece.node.setSiblingIndex(insertIndex);
-        
-        // 重置位置
-        piece.node.position = Vec3.ZERO;
-        
-        console.log(`拼图切片 ${piece.pieceIndex} 已插入回列表，位置: ${insertIndex}`);
-    }
-    
-    /**
-     * 限制拼图切片在拖拽区域内
-     */
-    private constrainPieceInDragArea(piece: PuzzlePiece): void {
-        if (!this.dragArea) return;
-        
-        const dragAreaTransform = this.dragArea.getComponent(UITransform);
-        if (!dragAreaTransform) return;
-        
-        const dragAreaWorldPos = this.dragArea.getWorldPosition();
-        const dragAreaSize = dragAreaTransform.contentSize;
-        const pieceWorldPos = piece.node.getWorldPosition();
-        
-        // 计算限制后的位置
-        const halfWidth = dragAreaSize.width / 2;
-        const halfHeight = dragAreaSize.height / 2;
-        
-        const constrainedX = Math.max(
-            dragAreaWorldPos.x - halfWidth,
-            Math.min(dragAreaWorldPos.x + halfWidth, pieceWorldPos.x)
-        );
-        
-        const constrainedY = Math.max(
-            dragAreaWorldPos.y - halfHeight,
-            Math.min(dragAreaWorldPos.y + halfHeight, pieceWorldPos.y)
-        );
-        
-        piece.node.setWorldPosition(new Vec3(constrainedX, constrainedY, pieceWorldPos.z));
-        console.log(`拼图切片 ${piece.pieceIndex} 位置已限制在拖拽区域内`);
-    }
-
-    /**
      * 将拼图切片放置到正确位置
      */
     private placePieceInCorrectPosition(piece: PuzzlePiece, slot: Node): void {
-        console.log(`[UISolvePuzzle] 将拼图片段 ${piece.pieceIndex} 放置到正确位置`);
+        console.log(`[UISolvePuzzle] 将拼图片段 ${piece.pieceIndex} 放置到正确位置 [${slot['gridRow']},${slot['gridCol']}]`);
         
-        piece.moveToPosition(slot, Vec3.ZERO);
+        // 将拼图切片移动到网格槽位
+        piece.node.setParent(slot);
+        piece.node.setPosition(Vec3.ZERO);
         
-        // 禁用拖拽（已放置正确）
-        piece.node.off(Input.EventType.TOUCH_START);
-        piece.node.off(Input.EventType.TOUCH_MOVE);
-        piece.node.off(Input.EventType.TOUCH_END);
+        // 标记槽位已被占用
+        slot['isEmpty'] = false;
+        slot['occupiedPiece'] = piece;
         
         console.log(`[UISolvePuzzle] 拼图片段 ${piece.pieceIndex} 已成功放置到正确位置`);
+    }
+    
+    /**
+     * 高亮正确的槽位
+     */
+    private highlightCorrectSlot(slot: Node, highlight: boolean): void {
+        const slotSprite = slot.getComponent(Sprite);
+        if (!slotSprite) return;
+        
+        if (highlight) {
+            // 高亮效果：使用绿色边框或更亮的颜色
+            const highlightColor = new Color(100, 255, 100, 200);  // 绿色高亮
+            slotSprite.color = highlightColor;
+        } else {
+            // 恢复原始颜色
+            const row = slot['gridRow'];
+            const col = slot['gridCol'];
+            const isEvenPosition = (row + col) % 2 === 0;
+            const lightColor = new Color(220, 220, 220, 180);
+            const darkColor = new Color(180, 180, 180, 180);
+            slotSprite.color = isEvenPosition ? lightColor : darkColor;
+        }
     }
 
     /**
