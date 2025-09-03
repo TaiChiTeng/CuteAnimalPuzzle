@@ -199,10 +199,10 @@ export class UISolvePuzzle extends Component {
                 uiTransform.setContentSize(slotSize, slotSize);
             }
             
-            // 设置网格槽位图片（奇偶交替）
+            // 设置网格槽位图片（根据行号+列号的奇偶性）
             const sprite = slotNode.getComponent(Sprite);
             if (sprite) {
-                if (i % 2 === 0) {
+                if ((row + col) % 2 === 0) {
                     sprite.spriteFrame = this.gridSpriteFrame0;
                 } else {
                     sprite.spriteFrame = this.gridSpriteFrame1;
