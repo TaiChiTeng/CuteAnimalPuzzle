@@ -237,6 +237,7 @@
                 <false/>
             </struct>
             <key type="filename">texBtnIconLocked.png</key>
+            <key type="filename">texBtnIconLook.png</key>
             <key type="filename">texBtnIconPlay.png</key>
             <struct type="IndividualSpriteSettings">
                 <key>pivotPoint</key>
@@ -366,6 +367,7 @@
                     <filename>texBtnIconTipShow.png</filename>
                     <filename>texBtnIconDownload.png</filename>
                     <filename>texBtnIconLocked.png</filename>
+                    <filename>texBtnIconLook.png</filename>
                 </array>
             </struct>
         </map>
