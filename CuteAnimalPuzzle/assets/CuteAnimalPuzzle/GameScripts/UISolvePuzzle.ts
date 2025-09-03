@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite} from 'cc';
+import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform} from 'cc';
 import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzlePiece } from './PuzzlePiece';
@@ -31,17 +31,25 @@ export class UISolvePuzzle extends Component {
     @property(Prefab)
     public puzzlePiecePrefab: Prefab = null;
 
-    // 拼图资源管理器将自动处理资源
+    @property(Prefab)
+    public gridPiecePrefab: Prefab = null;
 
+    @property(SpriteFrame)
+    public gridSpriteFrame0: SpriteFrame = null;
+
+    @property(SpriteFrame)
+    public gridSpriteFrame1: SpriteFrame = null;
+
+    // 拼图资源管理器将自动处理资源
     private uiManager: UIManager = null;
     private puzzlePieces: PuzzlePiece[] = [];
     private gridSlots: Node[] = [];  // 网格槽位
+    private gridSideLength: number = 660;  // 网格边长
     private currentPuzzleId: number = 1;
     private currentDifficulty: PuzzleDifficulty = PuzzleDifficulty.EASY;
     private gridRows: number = 3;
     private gridCols: number = 3;
-    private slotSize: number = 100;  // 槽位大小
-    private snapDistance: number = 50;  // 吸附距离
+    
 
 
     start() {
@@ -157,7 +165,56 @@ export class UISolvePuzzle extends Component {
      * 创建网格槽位
      */
     private createGridSlots(): void {
-        // TODO: 创建网格槽位
+        if (!this.puzzleGrid || !this.gridPiecePrefab) {
+            console.error('[UISolvePuzzle] puzzleGrid或gridPiecePrefab未设置');
+            return;
+        }
+        
+        // 清理现有网格槽位
+        this.clearGridSlots();
+        
+        const totalSlots = this.gridRows * this.gridCols;
+        const slotSize = this.gridSideLength / Math.max(this.gridRows, this.gridCols);
+        
+        // 计算网格起始位置（居中对齐）
+        const startX = -(this.gridSideLength - slotSize) / 2;
+        const startY = (this.gridSideLength - slotSize) / 2;
+        
+        for (let i = 0; i < totalSlots; i++) {
+            const slotNode = instantiate(this.gridPiecePrefab);
+            if (!slotNode) continue;
+            
+            // 计算网格位置
+            const row = Math.floor(i / this.gridCols);
+            const col = i % this.gridCols;
+            
+            const posX = startX + col * slotSize;
+            const posY = startY - row * slotSize;
+            
+            slotNode.setPosition(posX, posY, 0);
+            
+            // 设置网格槽位尺寸
+            const uiTransform = slotNode.getComponent(UITransform);
+            if (uiTransform) {
+                uiTransform.setContentSize(slotSize, slotSize);
+            }
+            
+            // 设置网格槽位图片（奇偶交替）
+            const sprite = slotNode.getComponent(Sprite);
+            if (sprite) {
+                if (i % 2 === 0) {
+                    sprite.spriteFrame = this.gridSpriteFrame0;
+                } else {
+                    sprite.spriteFrame = this.gridSpriteFrame1;
+                }
+            }
+            
+            // 添加到网格区域
+            this.puzzleGrid.addChild(slotNode);
+            this.gridSlots.push(slotNode);
+        }
+        
+        console.log(`[UISolvePuzzle] 创建了${totalSlots}个网格槽位，网格大小：${this.gridRows}x${this.gridCols}，槽位尺寸：${slotSize}`);
     }
 
     /**
@@ -264,14 +321,24 @@ export class UISolvePuzzle extends Component {
      * 清理网格槽位
      */
     private clearGridSlots(): void {
-        // TODO: 清理网格槽位
+        for (const slot of this.gridSlots) {
+            if (slot && slot.isValid) {
+                slot.destroy();
+            }
+        }
+        this.gridSlots = [];
     }
 
     /**
      * 清理拼图切片
      */
     private clearPuzzlePieces(): void {
-        // TODO: 清理拼图切片
+        for (const piece of this.puzzlePieces) {
+            if (piece && piece.node && piece.node.isValid) {
+                piece.node.destroy();
+            }
+        }
+        this.puzzlePieces = [];
     }
 
     update(deltaTime: number) {

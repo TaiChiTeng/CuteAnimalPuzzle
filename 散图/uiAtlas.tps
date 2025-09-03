@@ -239,6 +239,8 @@
             <key type="filename">texBtnIconLocked.png</key>
             <key type="filename">texBtnIconLook.png</key>
             <key type="filename">texBtnIconPlay.png</key>
+            <key type="filename">texGrid0.png</key>
+            <key type="filename">texGrid1.png</key>
             <struct type="IndividualSpriteSettings">
                 <key>pivotPoint</key>
                 <point_f>0.5,0.5</point_f>
@@ -313,21 +315,6 @@
                 <key>scale9FromFile</key>
                 <false/>
             </struct>
-            <key type="filename">texBtnIconTip.png</key>
-            <struct type="IndividualSpriteSettings">
-                <key>pivotPoint</key>
-                <point_f>0.5,0.5</point_f>
-                <key>spriteScale</key>
-                <double>1</double>
-                <key>scale9Enabled</key>
-                <false/>
-                <key>scale9Borders</key>
-                <rect>6,8,12,16</rect>
-                <key>scale9Paddings</key>
-                <rect>6,8,12,16</rect>
-                <key>scale9FromFile</key>
-                <false/>
-            </struct>
             <key type="filename">texBtnIconTipHide.png</key>
             <key type="filename">texBtnIconTipShow.png</key>
             <struct type="IndividualSpriteSettings">
@@ -358,7 +345,6 @@
                     <filename>texBtnFrame.png</filename>
                     <filename>texBtnIconBack.png</filename>
                     <filename>texBtnIconPlay.png</filename>
-                    <filename>texBtnIconTip.png</filename>
                     <filename>texBtnIconPuzzle.png</filename>
                     <filename>texBtnIconShare.png</filename>
                     <filename>texBtnIconSoundOff.png</filename>
@@ -368,6 +354,8 @@
                     <filename>texBtnIconDownload.png</filename>
                     <filename>texBtnIconLocked.png</filename>
                     <filename>texBtnIconLook.png</filename>
+                    <filename>texGrid0.png</filename>
+                    <filename>texGrid1.png</filename>
                 </array>
             </struct>
         </map>
