@@ -346,7 +346,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "completeIcon",
+    "_name": "sprUnfinished",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -482,7 +482,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "lockIcon",
+    "_name": "sprLocked",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {

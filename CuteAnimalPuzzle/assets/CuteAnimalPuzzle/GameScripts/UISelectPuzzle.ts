@@ -279,14 +279,14 @@ export class UISelectPuzzle extends Component {
         // 查找拼图项的子节点
         const btnPuzzle = puzzleItem.getComponent(Button);
         const sprPuzzle = puzzleItem.getChildByName('sprPuzzle')?.getComponent(Sprite);
-        const lockIcon = puzzleItem.getChildByName('lockIcon');
-        const completeIcon = puzzleItem.getChildByName('completeIcon');
+        const sprLocked = puzzleItem.getChildByName('sprLocked');
+        const sprUnfinished = puzzleItem.getChildByName('sprUnfinished');
         
         console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 子节点检查:`);
         console.log(`  - Button组件: ${btnPuzzle ? '找到' : '未找到'}`);
         console.log(`  - sprPuzzle节点: ${sprPuzzle ? '找到' : '未找到'}`);
-        console.log(`  - lockIcon节点: ${lockIcon ? '找到' : '未找到'}`);
-        console.log(`  - completeIcon节点: ${completeIcon ? '找到' : '未找到'}`);
+        console.log(`  - sprLocked节点: ${sprLocked ? '找到' : '未找到'}`);
+        console.log(`  - sprUnfinished节点: ${sprUnfinished ? '找到' : '未找到'}`);
         
         // 设置拼图图片
         if (sprPuzzle) {
@@ -310,30 +310,30 @@ export class UISelectPuzzle extends Component {
         console.log(`[UISelectPuzzle] 根据状态 ${status} 设置拼图 ${puzzleId} 的显示`);
         switch (status) {
             case PuzzleStatus.LOCKED:
-                if (lockIcon) {
-                    lockIcon.active = true;
+                if (sprLocked) {
+                    sprLocked.active = true;
                     console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 显示锁定图标`);
                 }
-                if (completeIcon) {
-                    completeIcon.active = false;
+                if (sprUnfinished) {
+                    sprUnfinished.active = true;
                 }
                 break;
             case PuzzleStatus.UNLOCKED:
-                if (lockIcon) {
-                    lockIcon.active = false;
+                if (sprLocked) {
+                    sprLocked.active = false;
                 }
-                if (completeIcon) {
-                    completeIcon.active = false;
+                if (sprUnfinished) {
+                    sprUnfinished.active = true;
                 }
                 console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 设置为解锁状态`);
                 break;
             case PuzzleStatus.COMPLETED:
-                if (lockIcon) {
-                    lockIcon.active = false;
+                if (sprLocked) {
+                    sprLocked.active = false;
                 }
-                if (completeIcon) {
-                    completeIcon.active = true;
-                    console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 显示完成图标`);
+                if (sprUnfinished) {
+                    sprUnfinished.active = false;
+                    console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 隐藏未完成图标`);
                 }
                 break;
             default:
