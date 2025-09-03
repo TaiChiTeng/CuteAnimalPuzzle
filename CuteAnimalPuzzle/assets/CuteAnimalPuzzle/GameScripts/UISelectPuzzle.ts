@@ -33,7 +33,28 @@ export class UISelectPuzzle extends Component {
     private puzzleItems: Node[] = [];
 
     start() {
+        console.log('[UISelectPuzzle] start方法被调用，开始初始化');
+        
+        // 获取UIManager引用
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
+        if (this.uiManager) {
+            console.log('[UISelectPuzzle] UIManager组件获取成功');
+        } else {
+            console.error('[UISelectPuzzle] 未找到UIManager组件');
+        }
+        
+        // 检查必要的组件和节点
+        if (!this.puzzleContent) {
+            console.error('[UISelectPuzzle] puzzleContent节点未配置');
+        } else {
+            console.log('[UISelectPuzzle] puzzleContent节点配置正常');
+        }
+        
+        if (!this.itemSelectPuzzlePrefab) {
+            console.error('[UISelectPuzzle] itemSelectPuzzlePrefab预制体未配置');
+        } else {
+            console.log('[UISelectPuzzle] itemSelectPuzzlePrefab预制体配置正常');
+        }
         
         // 绑定按钮事件
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
@@ -42,6 +63,8 @@ export class UISelectPuzzle extends Component {
         this.toggleEasy?.node.on(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
         this.toggleMedium?.node.on(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
         this.toggleHard?.node.on(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
+        
+        console.log('[UISelectPuzzle] start方法执行完成');
     }
 
     onDestroy() {
@@ -106,23 +129,36 @@ export class UISelectPuzzle extends Component {
      * 拼图选择按钮点击事件
      */
     private onPuzzleItemClick(puzzleId: number): void {
-        console.log('选择拼图:', puzzleId);
+        console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 被点击`);
         
         const gameData = GameDataPuzzle.instance;
-        if (gameData) {
-            const status = gameData.getPuzzleStatus(puzzleId);
+        if (!gameData) {
+            console.error(`[UISelectPuzzle] GameDataPuzzle实例未找到，无法处理拼图 ${puzzleId} 的点击事件`);
+            return;
+        }
+        
+        const status = gameData.getPuzzleStatus(puzzleId);
+        console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 当前状态: ${status}`);
+        
+        // 只有已解锁的拼图才能进入游戏
+        if (status === PuzzleStatus.UNLOCKED || status === PuzzleStatus.COMPLETED) {
+            console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 可以进入游戏，开始切换界面`);
             
-            // 只有已解锁的拼图才能进入游戏
-            if (status === PuzzleStatus.UNLOCKED || status === PuzzleStatus.COMPLETED) {
-                gameData.setSelectedPuzzleId(puzzleId);
-                
-                if (this.uiManager) {
-                    this.uiManager.showSolvePuzzleOnly();
-                }
+            gameData.setSelectedPuzzleId(puzzleId);
+            console.log(`[UISelectPuzzle] 已设置当前拼图ID为: ${puzzleId}`);
+            
+            if (this.uiManager) {
+                console.log(`[UISelectPuzzle] 找到UIManager，准备切换到拼图游戏界面`);
+                this.uiManager.showSolvePuzzleOnly();
             } else {
-                console.log('拼图未解锁，无法进入');
-                // 这里可以播放提示音效或显示提示信息
+                console.error(`[UISelectPuzzle] 未找到UIManager组件，无法切换到拼图游戏界面`);
             }
+        } else {
+            console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 状态为 ${status}，无法进入游戏`);
+            if (status === PuzzleStatus.LOCKED) {
+                console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 处于锁定状态，需要先解锁`);
+            }
+            // 这里可以播放提示音效或显示提示信息
         }
     }
 
@@ -160,46 +196,97 @@ export class UISelectPuzzle extends Component {
      * 初始化拼图列表
      */
     private initializePuzzleList(): void {
+        console.log('[UISelectPuzzle] 开始初始化拼图列表');
+        
         const gameData = GameDataPuzzle.instance;
         const resourceManager = PuzzleResourceManager.instance;
-        if (!gameData || !resourceManager || !this.puzzleContent || !this.itemSelectPuzzlePrefab) return;
+        
+        // 检查必要的组件和节点
+        if (!gameData) {
+            console.error('[UISelectPuzzle] GameDataPuzzle实例未找到，无法初始化拼图列表');
+            return;
+        }
+        if (!resourceManager) {
+            console.error('[UISelectPuzzle] PuzzleResourceManager实例未找到，无法初始化拼图列表');
+            return;
+        }
+        if (!this.puzzleContent) {
+            console.error('[UISelectPuzzle] puzzleContent节点未找到，无法初始化拼图列表');
+            return;
+        }
+        if (!this.itemSelectPuzzlePrefab) {
+            console.error('[UISelectPuzzle] itemSelectPuzzlePrefab预制未设置，无法初始化拼图列表');
+            return;
+        }
+        
+        console.log('[UISelectPuzzle] 所有必要组件检查通过，开始创建拼图列表');
         
         // 清理现有的拼图项
         this.clearPuzzleItems();
+        console.log('[UISelectPuzzle] 已清理现有拼图项');
         
         // 获取可显示的拼图ID列表
         const availablePuzzleIds = resourceManager.getAvailablePuzzleIds();
+        console.log('[UISelectPuzzle] 可用拼图ID列表:', availablePuzzleIds);
+        console.log('[UISelectPuzzle] 拼图总数:', availablePuzzleIds.length);
         
         // 创建拼图项
+        let successCount = 0;
         for (let i = 0; i < availablePuzzleIds.length; i++) {
             const puzzleId = availablePuzzleIds[i];
+            console.log(`[UISelectPuzzle] 正在创建拼图项 ${i + 1}/${availablePuzzleIds.length}, ID: ${puzzleId}`);
+            
             const puzzleItem = instantiate(this.itemSelectPuzzlePrefab);
             
             if (puzzleItem) {
+                // 获取拼图资源信息用于调试
+                const spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
+                const resourceName = spriteFrame ? spriteFrame.name : '未找到资源';
+                console.log(`[UISelectPuzzle] 拼图ID ${puzzleId} 对应资源: ${resourceName}`);
+                
                 // 设置拼图项的显示
                 this.setupPuzzleItem(puzzleItem, puzzleId, i);
                 
                 // 添加到内容节点
                 this.puzzleContent.addChild(puzzleItem);
                 this.puzzleItems.push(puzzleItem);
+                successCount++;
+                
+                console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 创建成功`);
+            } else {
+                console.error(`[UISelectPuzzle] 拼图项 ${puzzleId} 实例化失败`);
             }
         }
+        
+        console.log(`[UISelectPuzzle] 拼图列表初始化完成！成功创建 ${successCount}/${availablePuzzleIds.length} 个拼图项`);
     }
 
     /**
      * 设置拼图项的显示和事件
      */
     private setupPuzzleItem(puzzleItem: Node, puzzleId: number, index: number): void {
+        console.log(`[UISelectPuzzle] 开始设置拼图项 ${puzzleId} (索引: ${index})`);
+        
         const gameData = GameDataPuzzle.instance;
-        if (!gameData) return;
+        if (!gameData) {
+            console.error(`[UISelectPuzzle] GameDataPuzzle实例未找到，无法设置拼图项 ${puzzleId}`);
+            return;
+        }
         
         const status = gameData.getPuzzleStatus(puzzleId);
+        console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 当前状态: ${status}`);
         
         // 查找拼图项的子节点
         const btnPuzzle = puzzleItem.getComponent(Button);
         const sprPuzzle = puzzleItem.getChildByName('sprPuzzle')?.getComponent(Sprite);
         const lockIcon = puzzleItem.getChildByName('lockIcon');
         const completeIcon = puzzleItem.getChildByName('completeIcon');
+        
+        console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 子节点检查:`);
+        console.log(`  - Button组件: ${btnPuzzle ? '找到' : '未找到'}`);
+        console.log(`  - sprPuzzle节点: ${sprPuzzle ? '找到' : '未找到'}`);
+        console.log(`  - lockIcon节点: ${lockIcon ? '找到' : '未找到'}`);
+        console.log(`  - completeIcon节点: ${completeIcon ? '找到' : '未找到'}`);
         
         // 设置拼图图片
         if (sprPuzzle) {
@@ -208,23 +295,49 @@ export class UISelectPuzzle extends Component {
                 const spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
                 if (spriteFrame) {
                     sprPuzzle.spriteFrame = spriteFrame;
+                    console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 图片设置成功: ${spriteFrame.name}`);
+                } else {
+                    console.error(`[UISelectPuzzle] 拼图 ${puzzleId} 未找到对应的SpriteFrame资源`);
                 }
+            } else {
+                console.error(`[UISelectPuzzle] PuzzleResourceManager实例未找到，无法设置拼图 ${puzzleId} 的图片`);
             }
+        } else {
+            console.error(`[UISelectPuzzle] 拼图项 ${puzzleId} 未找到sprPuzzle子节点，无法设置图片`);
         }
         
         // 根据状态设置显示
+        console.log(`[UISelectPuzzle] 根据状态 ${status} 设置拼图 ${puzzleId} 的显示`);
         switch (status) {
             case PuzzleStatus.LOCKED:
-                if (lockIcon) lockIcon.active = true;
-                if (completeIcon) completeIcon.active = false;
+                if (lockIcon) {
+                    lockIcon.active = true;
+                    console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 显示锁定图标`);
+                }
+                if (completeIcon) {
+                    completeIcon.active = false;
+                }
                 break;
             case PuzzleStatus.UNLOCKED:
-                if (lockIcon) lockIcon.active = false;
-                if (completeIcon) completeIcon.active = false;
+                if (lockIcon) {
+                    lockIcon.active = false;
+                }
+                if (completeIcon) {
+                    completeIcon.active = false;
+                }
+                console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 设置为解锁状态`);
                 break;
             case PuzzleStatus.COMPLETED:
-                if (lockIcon) lockIcon.active = false;
-                if (completeIcon) completeIcon.active = true;
+                if (lockIcon) {
+                    lockIcon.active = false;
+                }
+                if (completeIcon) {
+                    completeIcon.active = true;
+                    console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 显示完成图标`);
+                }
+                break;
+            default:
+                console.warn(`[UISelectPuzzle] 拼图 ${puzzleId} 状态未知: ${status}`);
                 break;
         }
         
@@ -233,7 +346,12 @@ export class UISelectPuzzle extends Component {
             btnPuzzle.node.on(Button.EventType.CLICK, () => {
                 this.onPuzzleItemClick(puzzleId);
             }, this);
+            console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 点击事件绑定成功`);
+        } else {
+            console.error(`[UISelectPuzzle] 拼图项 ${puzzleId} 未找到Button组件，无法绑定点击事件`);
         }
+        
+        console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 设置完成`);
     }
 
     /**

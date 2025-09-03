@@ -346,7 +346,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "sprUnfinished",
+    "_name": "completeIcon",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -482,7 +482,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "sprLocked",
+    "_name": "lockIcon",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -738,6 +738,7 @@
       "__id__": 0
     },
     "fileId": "95ItWRQptHMp7GhehOA5Bq",
+    "instance": null,
     "targetOverrides": null
   }
 ]
