@@ -236,6 +236,7 @@
                 <key>scale9FromFile</key>
                 <false/>
             </struct>
+            <key type="filename">texBtnIconLocked.png</key>
             <key type="filename">texBtnIconPlay.png</key>
             <struct type="IndividualSpriteSettings">
                 <key>pivotPoint</key>
@@ -364,6 +365,7 @@
                     <filename>texBtnIconTipHide.png</filename>
                     <filename>texBtnIconTipShow.png</filename>
                     <filename>texBtnIconDownload.png</filename>
+                    <filename>texBtnIconLocked.png</filename>
                 </array>
             </struct>
         </map>
