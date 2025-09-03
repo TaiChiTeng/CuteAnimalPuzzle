@@ -140,9 +140,22 @@ export class UISelectPuzzle extends Component {
         const status = gameData.getPuzzleStatus(puzzleId);
         console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 当前状态: ${status}`);
         
-        // 只有已解锁的拼图才能进入游戏
-        if (status === PuzzleStatus.UNLOCKED || status === PuzzleStatus.COMPLETED) {
-            console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 可以进入游戏，开始切换界面`);
+        if (status === PuzzleStatus.COMPLETED) {
+            // 已完成的拼图：点击查看完成的拼图
+            console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 已完成，打开查看界面`);
+            
+            gameData.setSelectedPuzzleId(puzzleId);
+            console.log(`[UISelectPuzzle] 已设置当前拼图ID为: ${puzzleId}`);
+            
+            if (this.uiManager) {
+                console.log(`[UISelectPuzzle] 找到UIManager，准备切换到完成拼图界面`);
+                this.uiManager.showFinishPuzzleOnly();
+            } else {
+                console.error(`[UISelectPuzzle] 未找到UIManager组件，无法切换到完成拼图界面`);
+            }
+        } else if (status === PuzzleStatus.UNLOCKED) {
+            // 已解锁未完成的拼图：点击进入游戏
+            console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 已解锁，进入拼图游戏`);
             
             gameData.setSelectedPuzzleId(puzzleId);
             console.log(`[UISelectPuzzle] 已设置当前拼图ID为: ${puzzleId}`);
@@ -290,13 +303,13 @@ export class UISelectPuzzle extends Component {
         console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 当前状态: ${status}`);
         
         // 查找拼图项的子节点
-        const btnPuzzle = puzzleItem.getComponent(Button);
+        const btnLookPuzzle = puzzleItem.getChildByName('btnLookPuzzle')?.getComponent(Button);
         const sprPuzzle = puzzleItem.getChildByName('sprPuzzle')?.getComponent(Sprite);
         const sprLocked = puzzleItem.getChildByName('sprLocked');
         const sprUnfinished = puzzleItem.getChildByName('sprUnfinished');
         
         console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 子节点检查:`);
-        console.log(`  - Button组件: ${btnPuzzle ? '找到' : '未找到'}`);
+        console.log(`  - Button节点: ${btnLookPuzzle ? '找到' : '未找到'}`);
         console.log(`  - sprPuzzle节点: ${sprPuzzle ? '找到' : '未找到'}`);
         console.log(`  - sprLocked节点: ${sprLocked ? '找到' : '未找到'}`);
         console.log(`  - sprUnfinished节点: ${sprUnfinished ? '找到' : '未找到'}`);
@@ -330,6 +343,10 @@ export class UISelectPuzzle extends Component {
                 if (sprUnfinished) {
                     sprUnfinished.active = true;
                 }
+                if (btnLookPuzzle) {
+                    btnLookPuzzle.node.active = false;
+                }
+                console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 设置为锁定状态`);
                 break;
             case PuzzleStatus.UNLOCKED:
                 if (sprLocked) {
@@ -337,6 +354,9 @@ export class UISelectPuzzle extends Component {
                 }
                 if (sprUnfinished) {
                     sprUnfinished.active = true;
+                }
+                if (btnLookPuzzle) {
+                    btnLookPuzzle.node.active = false;
                 }
                 console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 设置为解锁状态`);
                 break;
@@ -346,17 +366,23 @@ export class UISelectPuzzle extends Component {
                 }
                 if (sprUnfinished) {
                     sprUnfinished.active = false;
-                    console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 隐藏未完成图标`);
                 }
+                if (btnLookPuzzle) {
+                    btnLookPuzzle.node.active = true;
+                }
+                console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 设置为已完成状态，点击可查看完成的拼图`);
                 break;
             default:
                 console.warn(`[UISelectPuzzle] 拼图 ${puzzleId} 状态未知: ${status}`);
+                if (btnLookPuzzle) {
+                    btnLookPuzzle.node.active = false;
+                }
                 break;
         }
         
         // 绑定点击事件
-        if (btnPuzzle) {
-            btnPuzzle.node.on(Button.EventType.CLICK, () => {
+        if (btnLookPuzzle) {
+            btnLookPuzzle.node.on(Button.EventType.CLICK, () => {
                 this.onPuzzleItemClick(puzzleId);
             }, this);
             console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 点击事件绑定成功`);
@@ -373,9 +399,9 @@ export class UISelectPuzzle extends Component {
     private clearPuzzleItems(): void {
         for (const item of this.puzzleItems) {
             if (item && item.isValid) {
-                const btnPuzzle = item.getComponent(Button);
-                if (btnPuzzle) {
-                    btnPuzzle.node.off(Button.EventType.CLICK);
+                const btnLookPuzzle = item.getComponent(Button);
+                if (btnLookPuzzle) {
+                    btnLookPuzzle.node.off(Button.EventType.CLICK);
                 }
                 item.destroy();
             }

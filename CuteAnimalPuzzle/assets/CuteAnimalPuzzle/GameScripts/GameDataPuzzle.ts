@@ -59,6 +59,7 @@ export class GameDataPuzzle extends Component {
      * 初始化默认数据
      */
     private initDefaultData(): void {
+        console.log('[GameDataPuzzle] puzzleInitialStatus数据:', this.puzzleInitialStatus);
         if (!this._saveData) {
             this._saveData = {
                 soundEnabled: true,

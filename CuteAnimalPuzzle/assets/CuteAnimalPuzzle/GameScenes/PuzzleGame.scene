@@ -1616,7 +1616,7 @@
         "__id__": 109
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 119
@@ -4779,7 +4779,7 @@
         "__id__": 192
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 204
@@ -7915,7 +7915,7 @@
         "__id__": 246
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 258
@@ -10210,7 +10210,7 @@
       }
     ],
     "puzzleInitialStatus": [
-      2,
+      3,
       2,
       2,
       2,
