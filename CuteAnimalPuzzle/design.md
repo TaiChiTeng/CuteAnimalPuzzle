@@ -81,7 +81,15 @@ game.js? [sm]:17 [UISolvePuzzle] 销毁了拖拽预制体
 **测试结果**：
 现在手机上触摸拼图切片时，不会再出现未松开就触发恢复逻辑的问题。
 
-        
+        再往最终需求上做：
+                （1）当拼图切片列表的切片PuzzlePiece[i]被按下时，再以dragArea为父节点创建一个拖拽副本dragPiecePrefab，dragPiecePrefab图片用PuzzlePiece[i]的图片，然后列表要暂时删除PuzzlePiece[i]
+                （2）限制dragPiecePrefab在dragArea区域内，当且仅当松开鼠标/不再屏幕触摸时：
+                    （2.1）如果此时dragPiecePrefab在正确位置，就走创建gridPieceAnswerPrefab的流程，并且销毁拖拽副本，然后检查是否所有拼图切片都在正确位置，如果是则更新存档并打开完成拼图界面
+                    （2.2）如果此时dragPiecePrefab不在正确位置，就判断此时是否在拼图切片列表的范围内：
+                            （2.2.1）如果不在拼图切片列表的范围内，就创建一个未拼好的拼图切片(也是用预制体dragPiecePrefab)，停留在松开位置，添加进dragPieceSlots[]来存储，销毁拖拽副本
+                            （2.2.2）如果在拼图切片列表的范围内，就根据最近的位置插入回列表，销毁拖拽副本
+
+
     UIFinishPuzzle：完成拼图界面
         按钮：返回选择拼图和难度界面
         按钮：保存拼图图片到手机相册
