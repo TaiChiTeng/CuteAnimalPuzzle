@@ -61,6 +61,13 @@ export class UISolvePuzzle extends Component {
     private currentDragPiece: Node = null;  // 当前正在拖动的拼图切片
     private currentDraggedPuzzlePiece: PuzzlePiece = null;  // 当前被拖拽的原始拼图切片
     private isDragFromPuzzleList: boolean = false;  // 标记当前拖拽是否来自puzzlePieces列表
+    private isDragging: boolean = false;  // 拖拽状态锁，防止并发拖拽
+    
+    // 事件监听器状态管理
+    private isGlobalEventsRegistered: boolean = false;
+    
+    // 数组操作锁，防止竞态条件
+    private isArrayOperationLocked: boolean = false;
     private gridSideLength: number = 660;  // 网格边长
     private currentPuzzleId: number = 1;
     private currentDifficulty: PuzzleDifficulty = PuzzleDifficulty.EASY;
@@ -177,7 +184,15 @@ export class UISolvePuzzle extends Component {
      * 拼图切片鼠标按下事件处理
      */
     private onPieceMouseDown(event: EventMouse, puzzlePiece: PuzzlePiece): void {
+        // 检查是否已经在拖拽中
+        if (this.isDragging) {
+            return;
+        }
+        
         if (!this.dragPiecePrefab || !this.dragArea || !puzzlePiece) return;
+        
+        // 设置拖拽状态锁
+        this.isDragging = true;
         
         // 阻止事件传播，避免触发其他鼠标事件
         event.propagationStopped = true;
@@ -185,9 +200,8 @@ export class UISolvePuzzle extends Component {
         // 创建拖拽预制体并从列表中移除原切片
         this.createDragPieceFromPuzzlePiece(event.getUILocation().x, event.getUILocation().y, puzzlePiece);
         
-        // 使用input全局事件监听
-        input.on(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
-        input.on(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+        // 绑定全局鼠标事件（避免重复绑定）
+        this.registerGlobalMouseEvents();
         
         console.log(`[UISolvePuzzle] 鼠标按下事件处理完成，切片${puzzlePiece.pieceIndex}`);
     }
@@ -196,7 +210,15 @@ export class UISolvePuzzle extends Component {
      * 拼图切片触摸开始事件处理（兼容移动设备）
      */
     private onPieceTouchStart(event: EventTouch, puzzlePiece: PuzzlePiece): void {
+        // 检查是否已经在拖拽中
+        if (this.isDragging) {
+            return;
+        }
+        
         if (!this.dragPiecePrefab || !this.dragArea || !puzzlePiece) return;
+        
+        // 设置拖拽状态锁
+        this.isDragging = true;
         
         // 阻止事件传播，避免触发其他触摸事件
         event.propagationStopped = true;
@@ -204,10 +226,8 @@ export class UISolvePuzzle extends Component {
         // 创建拖拽预制体并从列表中移除原切片
         this.createDragPieceFromPuzzlePiece(event.getUILocation().x, event.getUILocation().y, puzzlePiece);
         
-        // 使用input全局事件监听，避免ScrollView干扰
-        input.on(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
-        input.on(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
-        input.on(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+        // 绑定全局触摸事件（避免重复绑定）
+        this.registerGlobalTouchEvents();
         
         console.log(`[UISolvePuzzle] 触摸开始事件处理完成，切片${puzzlePiece.pieceIndex}`);
     }
@@ -216,31 +236,44 @@ export class UISolvePuzzle extends Component {
      * dragPieceSlots切片鼠标按下事件处理
      */
     private onDragPieceMouseDown(event: EventMouse, dragPieceNode: Node, pieceIndex: number): void {
+        // 检查是否已经在拖拽中
+        if (this.isDragging) {
+            return;
+        }
+        
         console.log(`[UISolvePuzzle] dragPieceSlots切片${pieceIndex}鼠标按下`);
         event.propagationStopped = true;
+        
+        // 设置拖拽状态锁
+        this.isDragging = true;
         
         // 创建拖拽预制体
         this.createDragPieceFromDragPiece(event.getUILocation().x, event.getUILocation().y, dragPieceNode, pieceIndex);
         
-        // 添加input全局鼠标事件监听
-        input.on(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
-        input.on(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+        // 绑定全局鼠标事件（避免重复绑定）
+        this.registerGlobalMouseEvents();
     }
     
     /**
      * dragPieceSlots切片触摸开始事件处理（兼容移动设备）
      */
     private onDragPieceTouchStart(event: EventTouch, dragPieceNode: Node, pieceIndex: number): void {
+        // 检查是否已经在拖拽中
+        if (this.isDragging) {
+            return;
+        }
+        
         console.log(`[UISolvePuzzle] dragPieceSlots切片${pieceIndex}触摸开始`);
         event.propagationStopped = true;
+        
+        // 设置拖拽状态锁
+        this.isDragging = true;
         
         // 创建拖拽预制体
         this.createDragPieceFromDragPiece(event.getUILocation().x, event.getUILocation().y, dragPieceNode, pieceIndex);
         
-        // 添加input全局触摸事件监听
-        input.on(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
-        input.on(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
-        input.on(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+        // 绑定全局触摸事件（避免重复绑定）
+        this.registerGlobalTouchEvents();
     }
     
     /**
@@ -263,8 +296,7 @@ export class UISolvePuzzle extends Component {
         this.handleDragEnd();
         
         // 移除input全局事件监听
-        input.off(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
-        input.off(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+        this.unregisterGlobalEvents();
     }
     
     /**
@@ -287,81 +319,177 @@ export class UISolvePuzzle extends Component {
         this.handleDragEnd();
         
         // 移除input全局事件监听
-        input.off(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
-        input.off(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
-        input.off(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+        this.unregisterGlobalEvents();
+    }
+    
+    /**
+     * 注册全局鼠标事件
+     */
+    private registerGlobalMouseEvents(): void {
+        if (!this.isGlobalEventsRegistered) {
+            input.on(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
+            input.on(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+            this.isGlobalEventsRegistered = true;
+            console.log('[UISolvePuzzle] 注册了全局鼠标事件');
+        }
+    }
+    
+    /**
+     * 注册全局触摸事件
+     */
+    private registerGlobalTouchEvents(): void {
+        if (!this.isGlobalEventsRegistered) {
+            input.on(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
+            input.on(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
+            input.on(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+            this.isGlobalEventsRegistered = true;
+            console.log('[UISolvePuzzle] 注册了全局触摸事件');
+        }
+    }
+    
+    /**
+     * 注销全局事件
+     */
+    private unregisterGlobalEvents(): void {
+        if (this.isGlobalEventsRegistered) {
+            input.off(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
+            input.off(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+            input.off(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
+            input.off(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
+            input.off(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+            this.isGlobalEventsRegistered = false;
+            console.log('[UISolvePuzzle] 注销了全局事件');
+        }
+    }
+    
+    /**
+     * 查找不重叠的位置
+     */
+    private findNonOverlappingPosition(targetPos: Vec3, pieceIndex: number): Vec3 {
+        const pieceSize = this.dragSideLength / Math.max(this.gridRows, this.gridCols);
+        const minDistance = pieceSize * 0.8; // 最小距离阈值
+        let adjustedPos = new Vec3(targetPos.x, targetPos.y, 0);
+        
+        // 检查是否与现有切片重叠
+        let hasOverlap = true;
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        while (hasOverlap && attempts < maxAttempts) {
+            hasOverlap = false;
+            
+            // 检查与dragPieceSlots中的切片是否重叠
+            for (const existingPiece of this.dragPieceSlots) {
+                if (!existingPiece || !existingPiece.isValid) continue;
+                
+                const existingPos = existingPiece.getPosition();
+                const distance = Vec3.distance(adjustedPos, existingPos);
+                
+                if (distance < minDistance) {
+                    hasOverlap = true;
+                    // 调整位置：向右下方偏移
+                    adjustedPos.x += pieceSize * 0.3;
+                    adjustedPos.y -= pieceSize * 0.3;
+                    
+                    // 确保不超出dragArea边界
+                    const dragAreaTransform = this.dragArea.getComponent(UITransform);
+                    if (dragAreaTransform) {
+                        const maxX = dragAreaTransform.width / 2 - pieceSize / 2;
+                        const maxY = dragAreaTransform.height / 2 - pieceSize / 2;
+                        const minX = -maxX;
+                        const minY = -maxY;
+                        
+                        adjustedPos.x = Math.max(minX, Math.min(maxX, adjustedPos.x));
+                        adjustedPos.y = Math.max(minY, Math.min(maxY, adjustedPos.y));
+                    }
+                    break;
+                }
+            }
+            
+            attempts++;
+        }
+        
+        if (attempts >= maxAttempts) {
+            console.warn(`[UISolvePuzzle] 无法为切片${pieceIndex}找到不重叠的位置，使用原始位置`);
+        }
+        
+        return adjustedPos;
     }
     
     /**
      * 处理拖拽结束逻辑
      */
     private handleDragEnd(): void {
-        if (!this.currentDragPiece || !this.currentDraggedPuzzlePiece) {
-            console.log('[UISolvePuzzle] 没有正在拖拽的切片，跳过处理');
-            return;
-        }
-        
-        console.log(`[UISolvePuzzle] 开始处理拖拽结束逻辑，切片索引：${this.currentDraggedPuzzlePiece.pieceIndex}`);
-        
-        // 使用标记判断拖拽来源
-        const isFromPuzzleList = this.isDragFromPuzzleList;
-        console.log(`[UISolvePuzzle] 拖拽来源：${isFromPuzzleList ? 'puzzlePieces列表' : 'dragPieceSlots数组'}`);
-        
-        // 检查是否在正确位置
-        const correctSlotIndex = this.checkCorrectPosition();
-        
-        if (correctSlotIndex !== -1) {
-            // 在正确位置：创建答案切片
-            console.log(`[UISolvePuzzle] 切片${this.currentDraggedPuzzlePiece.pieceIndex}在正确位置${correctSlotIndex}`);
-            this.createAnswerPieceAtSlot(correctSlotIndex);
-            
-            // 销毁拖拽副本
-            this.destroyDragPiece();
-            
-            // 从相应列表中永久移除原切片
-            if (isFromPuzzleList) {
-                this.removePuzzlePieceFromList(this.currentDraggedPuzzlePiece);
+        try {
+            if (!this.currentDragPiece || !this.currentDraggedPuzzlePiece) {
+                console.log('[UISolvePuzzle] 没有正在拖拽的切片，跳过处理');
+                this.forceCleanupDragState();
+                return;
             }
-            // 如果来自dragPieceSlots，原切片已经在创建拖拽副本时被移除，无需再次处理
             
-            // 检查拼图是否完成
-            this.checkPuzzleCompletion();
-        } else {
-            // 不在正确位置：判断是否在拼图切片列表范围内
-            if (this.isInPieceListRange()) {
-                if (isFromPuzzleList) {
-                    // 来自puzzlePieces列表：插入回列表
-                    console.log(`[UISolvePuzzle] 切片${this.currentDraggedPuzzlePiece.pieceIndex}在列表范围内，插入回列表`);
-                    this.insertPieceBackToList();
-                } else {
-                    // 来自dragPieceSlots：恢复到dragPieceSlots
-                    console.log(`[UISolvePuzzle] dragPieceSlots切片${this.currentDraggedPuzzlePiece.pieceIndex}在列表范围内，但保持为未拼好切片`);
-                    this.restoreToDragPieceSlots();
-                }
+            console.log(`[UISolvePuzzle] 开始处理拖拽结束逻辑，切片索引：${this.currentDraggedPuzzlePiece.pieceIndex}`);
+            
+            // 使用标记判断拖拽来源
+            const isFromPuzzleList = this.isDragFromPuzzleList;
+            console.log(`[UISolvePuzzle] 拖拽来源：${isFromPuzzleList ? 'puzzlePieces列表' : 'dragPieceSlots数组'}`);
+            
+            // 检查是否在正确位置
+            const correctSlotIndex = this.checkCorrectPosition();
+            
+            if (correctSlotIndex !== -1) {
+                // 在正确位置：创建答案切片
+                console.log(`[UISolvePuzzle] 切片${this.currentDraggedPuzzlePiece.pieceIndex}在正确位置${correctSlotIndex}`);
+                this.createAnswerPieceAtSlot(correctSlotIndex);
                 
                 // 销毁拖拽副本
                 this.destroyDragPiece();
+                
+                // 从相应列表中永久移除原切片
+                if (isFromPuzzleList) {
+                    this.safeRemovePuzzlePieceFromList(this.currentDraggedPuzzlePiece);
+                }
+                // 如果来自dragPieceSlots，原切片已经在创建拖拽副本时被移除，无需再次处理
+                
+                // 检查拼图是否完成
+                this.checkPuzzleCompletion();
             } else {
-                // 不在列表范围内：创建或恢复未拼好切片
-                if (isFromPuzzleList) {
-                    console.log(`[UISolvePuzzle] 切片${this.currentDraggedPuzzlePiece.pieceIndex}不在列表范围内，创建未拼好切片`);
-                    this.createUnplacedPiece();
+                // 不在正确位置：判断是否在拼图切片列表范围内
+                if (this.isInPieceListRange()) {
+                    if (isFromPuzzleList) {
+                        // 来自puzzlePieces列表：插入回列表
+                        console.log(`[UISolvePuzzle] 切片${this.currentDraggedPuzzlePiece.pieceIndex}在列表范围内，插入回列表`);
+                        this.insertPieceBackToList();
+                    } else {
+                        // 来自dragPieceSlots：恢复到dragPieceSlots
+                        console.log(`[UISolvePuzzle] dragPieceSlots切片${this.currentDraggedPuzzlePiece.pieceIndex}在列表范围内，但保持为未拼好切片`);
+                        this.restoreToDragPieceSlots();
+                    }
                     
-                    // 从列表中永久移除原切片
-                    this.removePuzzlePieceFromList(this.currentDraggedPuzzlePiece);
+                    // 销毁拖拽副本
+                    this.destroyDragPiece();
                 } else {
-                    console.log(`[UISolvePuzzle] dragPieceSlots切片${this.currentDraggedPuzzlePiece.pieceIndex}不在列表范围内，恢复为未拼好切片`);
-                    this.restoreToDragPieceSlots();
+                    // 不在列表范围内：创建或恢复未拼好切片
+                    if (isFromPuzzleList) {
+                        console.log(`[UISolvePuzzle] 切片${this.currentDraggedPuzzlePiece.pieceIndex}不在列表范围内，创建未拼好切片`);
+                        this.createUnplacedPiece();
+                        
+                        // 从列表中永久移除原切片
+                        this.safeRemovePuzzlePieceFromList(this.currentDraggedPuzzlePiece);
+                    } else {
+                        console.log(`[UISolvePuzzle] dragPieceSlots切片${this.currentDraggedPuzzlePiece.pieceIndex}不在列表范围内，恢复为未拼好切片`);
+                        this.restoreToDragPieceSlots();
+                    }
+                    
+                    // 销毁拖拽副本
+                    this.destroyDragPiece();
                 }
-                
-                // 销毁拖拽副本
-                this.destroyDragPiece();
             }
+        } catch (error) {
+            console.error('[UISolvePuzzle] handleDragEnd异常:', error);
+        } finally {
+            // 确保状态清理
+            this.forceCleanupDragState();
         }
-        
-        // 清理当前拖拽状态
-        this.currentDraggedPuzzlePiece = null;
-        this.isDragFromPuzzleList = false;
     }
     
     /**
@@ -373,6 +501,152 @@ export class UISolvePuzzle extends Component {
             this.puzzlePieces.splice(index, 1);
             puzzlePiece.node.removeFromParent();
             console.log(`[UISolvePuzzle] 从列表中移除了切片${puzzlePiece.pieceIndex}`);
+        }
+    }
+    
+    /**
+     * 安全地从拼图切片列表中移除指定切片
+     */
+    private safeRemovePuzzlePieceFromList(puzzlePiece: PuzzlePiece): void {
+        try {
+            if (!puzzlePiece || !puzzlePiece.node || !puzzlePiece.node.isValid) {
+                console.warn('[UISolvePuzzle] 尝试移除无效的拼图切片');
+                return;
+            }
+            
+            const index = this.puzzlePieces.indexOf(puzzlePiece);
+            if (index !== -1) {
+                this.puzzlePieces.splice(index, 1);
+                puzzlePiece.node.removeFromParent();
+                console.log(`[UISolvePuzzle] 安全移除了切片${puzzlePiece.pieceIndex}`);
+            }
+        } catch (error) {
+            console.error('[UISolvePuzzle] 移除拼图切片异常:', error);
+        }
+    }
+    
+    /**
+     * 强制清理拖拽状态（异常情况下使用）
+     */
+    private forceCleanupDragState(): void {
+        try {
+            // 销毁拖拽预制体
+            if (this.currentDragPiece && this.currentDragPiece.isValid) {
+                this.currentDragPiece.destroy();
+            }
+            
+            // 清理拖拽状态
+            this.currentDragPiece = null;
+            this.currentDraggedPuzzlePiece = null;
+            this.isDragFromPuzzleList = false;
+            this.isDragging = false;
+            
+            // 注销全局事件监听器
+            this.unregisterGlobalEvents();
+            
+            console.log('[UISolvePuzzle] 强制清理拖拽状态完成');
+        } catch (error) {
+            console.error('[UISolvePuzzle] 强制清理拖拽状态异常:', error);
+        }
+    }
+    
+    /**
+     * 安全地添加到dragPieceSlots数组
+     */
+    private safeAddToDragPieceSlots(node: Node): boolean {
+        if (this.isArrayOperationLocked) {
+            console.warn('[UISolvePuzzle] 数组操作被锁定，无法添加到dragPieceSlots');
+            return false;
+        }
+        
+        try {
+            this.isArrayOperationLocked = true;
+            
+            if (!node || !node.isValid) {
+                console.warn('[UISolvePuzzle] 尝试添加无效节点到dragPieceSlots');
+                return false;
+            }
+            
+            // 检查是否已存在
+            if (this.dragPieceSlots.indexOf(node) !== -1) {
+                console.warn('[UISolvePuzzle] 节点已存在于dragPieceSlots中');
+                return false;
+            }
+            
+            this.dragPieceSlots.push(node);
+            console.log(`[UISolvePuzzle] 安全添加节点到dragPieceSlots，当前数量：${this.dragPieceSlots.length}`);
+            return true;
+        } catch (error) {
+            console.error('[UISolvePuzzle] 添加到dragPieceSlots异常:', error);
+            return false;
+        } finally {
+            this.isArrayOperationLocked = false;
+        }
+    }
+    
+    /**
+     * 安全地从dragPieceSlots数组中移除节点
+     */
+    private safeRemoveFromDragPieceSlots(node: Node): boolean {
+        if (this.isArrayOperationLocked) {
+            console.warn('[UISolvePuzzle] 数组操作被锁定，无法从dragPieceSlots移除');
+            return false;
+        }
+        
+        try {
+            this.isArrayOperationLocked = true;
+            
+            const index = this.dragPieceSlots.indexOf(node);
+            if (index !== -1) {
+                this.dragPieceSlots.splice(index, 1);
+                if (node && node.isValid) {
+                    node.destroy();
+                }
+                console.log(`[UISolvePuzzle] 安全移除dragPieceSlots中的节点，索引：${index}，剩余数量：${this.dragPieceSlots.length}`);
+                return true;
+            } else {
+                console.warn('[UISolvePuzzle] 节点不存在于dragPieceSlots中');
+                return false;
+            }
+        } catch (error) {
+            console.error('[UISolvePuzzle] 移除dragPieceSlots节点异常:', error);
+            return false;
+        } finally {
+            this.isArrayOperationLocked = false;
+        }
+    }
+    
+    /**
+     * 安全地添加到puzzlePieces数组
+     */
+    private safeAddToPuzzlePieces(puzzlePiece: PuzzlePiece): boolean {
+        if (this.isArrayOperationLocked) {
+            console.warn('[UISolvePuzzle] 数组操作被锁定，无法添加到puzzlePieces');
+            return false;
+        }
+        
+        try {
+            this.isArrayOperationLocked = true;
+            
+            if (!puzzlePiece || !puzzlePiece.node || !puzzlePiece.node.isValid) {
+                console.warn('[UISolvePuzzle] 尝试添加无效拼图切片到puzzlePieces');
+                return false;
+            }
+            
+            // 检查是否已存在
+            if (this.puzzlePieces.indexOf(puzzlePiece) !== -1) {
+                console.warn('[UISolvePuzzle] 拼图切片已存在于puzzlePieces中');
+                return false;
+            }
+            
+            this.puzzlePieces.push(puzzlePiece);
+            console.log(`[UISolvePuzzle] 安全添加拼图切片到puzzlePieces，当前数量：${this.puzzlePieces.length}`);
+            return true;
+        } catch (error) {
+            console.error('[UISolvePuzzle] 添加到puzzlePieces异常:', error);
+            return false;
+        } finally {
+            this.isArrayOperationLocked = false;
         }
     }
     
@@ -415,8 +689,8 @@ export class UISolvePuzzle extends Component {
         // 为恢复的切片绑定事件
         this.setupDragPieceEvents(restoredPiece, this.currentDraggedPuzzlePiece.pieceIndex);
         
-        // 添加到dragPieceSlots数组
-        this.dragPieceSlots.push(restoredPiece);
+        // 安全添加到dragPieceSlots数组
+        this.safeAddToDragPieceSlots(restoredPiece);
         
         console.log(`[UISolvePuzzle] 恢复了dragPieceSlots切片${this.currentDraggedPuzzlePiece.pieceIndex}到位置(${localPos.x}, ${localPos.y})`);
     }
@@ -599,8 +873,8 @@ export class UISolvePuzzle extends Component {
             // 恢复原拼图切片的显示
             this.currentDraggedPuzzlePiece.node.active = true;
             
-            // 将拼图切片重新添加到列表
-            this.puzzlePieces.push(this.currentDraggedPuzzlePiece);
+            // 安全将拼图切片重新添加到列表
+            this.safeAddToPuzzlePieces(this.currentDraggedPuzzlePiece);
             
             console.log(`[UISolvePuzzle] 恢复了拼图切片${this.currentDraggedPuzzlePiece.pieceIndex}到列表`);
             
@@ -781,8 +1055,10 @@ export class UISolvePuzzle extends Component {
             unplacedTransform.setContentSize(dragTransform.contentSize);
         }
         
-        // 设置位置为当前拖拽预制体的位置
-        unplacedPiece.setPosition(this.currentDragPiece.getPosition());
+        // 检测并处理位置重叠
+        const originalPos = this.currentDragPiece.getPosition();
+        const adjustedPos = this.findNonOverlappingPosition(originalPos, this.currentDraggedPuzzlePiece.pieceIndex);
+        unplacedPiece.setPosition(adjustedPos);
         
         // 设置图片（与被拖拽的拼图切片相同）
         const sprite = unplacedPiece.getComponent(Sprite);
@@ -808,10 +1084,10 @@ export class UISolvePuzzle extends Component {
         // 为未拼好切片绑定事件
         this.setupDragPieceEvents(unplacedPiece, this.currentDraggedPuzzlePiece.pieceIndex);
         
-        // 存储到dragPieceSlots数组
-        this.dragPieceSlots.push(unplacedPiece);
+        // 安全存储到dragPieceSlots数组
+        this.safeAddToDragPieceSlots(unplacedPiece);
         
-        console.log(`[UISolvePuzzle] 创建了未拼好切片${this.currentDraggedPuzzlePiece.pieceIndex}，停留在松开位置`);
+        console.log(`[UISolvePuzzle] 创建了未拼好切片${this.currentDraggedPuzzlePiece.pieceIndex}，调整后位置：(${adjustedPos.x}, ${adjustedPos.y})`);
     }
     
     /**
@@ -828,7 +1104,7 @@ export class UISolvePuzzle extends Component {
         
         // 如果列表为空，直接添加
         if (this.puzzlePieces.length === 0) {
-            this.puzzlePieces.push(this.currentDraggedPuzzlePiece);
+            this.safeAddToPuzzlePieces(this.currentDraggedPuzzlePiece);
             this.pieceContent.addChild(this.currentDraggedPuzzlePiece.node);
             console.log(`[UISolvePuzzle] 将切片${this.currentDraggedPuzzlePiece.pieceIndex}插入到空列表`);
             return;
@@ -1103,9 +1379,9 @@ export class UISolvePuzzle extends Component {
             // 为拼图切片添加鼠标事件
             this.setupPieceMouseEvents(pieceNode, puzzlePiece);
             
-            // 添加到滚动列表
+            // 安全添加到滚动列表
             this.pieceContent.addChild(pieceNode);
-            this.puzzlePieces.push(puzzlePiece);
+            this.safeAddToPuzzlePieces(puzzlePiece);
         }
         
         // 打乱拼图切片顺序
