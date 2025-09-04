@@ -159,12 +159,17 @@ export class UISolvePuzzle extends Component {
     private onPieceMouseDown(event: EventMouse, puzzlePiece: PuzzlePiece): void {
         if (!this.dragPiecePrefab || !this.dragArea || !puzzlePiece) return;
         
+        // 阻止事件传播，避免触发其他鼠标事件
+        event.propagationStopped = true;
+        
         // 创建拖拽预制体并从列表中移除原切片
         this.createDragPieceFromPuzzlePiece(event.getUILocation().x, event.getUILocation().y, puzzlePiece);
         
-        // 添加全局鼠标移动和松开事件监听
-        this.node.on(Node.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
-        this.node.on(Node.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+        // 使用input全局事件监听
+        input.on(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
+        input.on(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+        
+        console.log(`[UISolvePuzzle] 鼠标按下事件处理完成，切片${puzzlePiece.pieceIndex}`);
     }
     
     /**
@@ -173,13 +178,18 @@ export class UISolvePuzzle extends Component {
     private onPieceTouchStart(event: EventTouch, puzzlePiece: PuzzlePiece): void {
         if (!this.dragPiecePrefab || !this.dragArea || !puzzlePiece) return;
         
+        // 阻止事件传播，避免触发其他触摸事件
+        event.propagationStopped = true;
+        
         // 创建拖拽预制体并从列表中移除原切片
         this.createDragPieceFromPuzzlePiece(event.getUILocation().x, event.getUILocation().y, puzzlePiece);
         
-        // 添加全局触摸移动和结束事件监听
-        this.node.on(Node.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
-        this.node.on(Node.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
-        this.node.on(Node.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+        // 使用input全局事件监听，避免ScrollView干扰
+        input.on(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
+        input.on(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
+        input.on(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+        
+        console.log(`[UISolvePuzzle] 触摸开始事件处理完成，切片${puzzlePiece.pieceIndex}`);
     }
     
     /**
@@ -199,9 +209,9 @@ export class UISolvePuzzle extends Component {
         // 恢复拼图切片到列表并删除拖拽预制体
         this.restorePuzzlePieceAndDestroyDrag();
         
-        // 移除全局事件监听
-        this.node.off(Node.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
-        this.node.off(Node.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
+        // 移除input全局事件监听
+        input.off(Input.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
+        input.off(Input.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
     }
     
     /**
@@ -218,13 +228,15 @@ export class UISolvePuzzle extends Component {
      * 全局触摸结束事件处理（兼容移动设备）
      */
     private onGlobalTouchEnd(event: EventTouch): void {
+        console.log('[UISolvePuzzle] 全局触摸结束事件触发');
+        
         // 恢复拼图切片到列表并删除拖拽预制体
         this.restorePuzzlePieceAndDestroyDrag();
         
-        // 移除全局事件监听
-        this.node.off(Node.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
-        this.node.off(Node.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
-        this.node.off(Node.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+        // 移除input全局事件监听
+        input.off(Input.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
+        input.off(Input.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
+        input.off(Input.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
     }
     
     /**

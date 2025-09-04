@@ -54,10 +54,39 @@
                             如果是在拼图切片列表的范围内，根据最近的位置插入回列表，销毁拖拽副本
                             如果不是在拼图切片列表的范围内，则创建一个未拼好的拼图切片(也是用预制体dragPiecePrefab)，停留在松开位置，添加进dragPieceSlots[]来存储，销毁拖拽副本
         上面（4）的描述，Claude竟然还是没法完成好，实在垃圾，再重新拆解需求：
-                （1）在dragArea区域按下鼠标不再创建拖拽副本dragPiecePrefab，改为
+                （1）在dragArea区域按下鼠标/屏幕触摸不再创建拖拽副本dragPiecePrefab，改为
                 （2）当拼图切片列表的切片PuzzlePiece[i]被按下时，再以dragArea为父节点创建一个拖拽副本dragPiecePrefab，dragPiecePrefab图片改用PuzzlePiece[i]的图片（不是固定puzzlePieces[0]了），然后列表要暂时删除PuzzlePiece[i]
-                （3）也是限制dragPiecePrefab在dragArea区域内，当且仅当松开鼠标时，将PuzzlePiece[i]添加回列表PuzzlePiece[]，并销毁dragPiecePrefab
+                （3）也是限制dragPiecePrefab在dragArea区域内，当且仅当松开鼠标/不再屏幕触摸时，将PuzzlePiece[i]添加回列表PuzzlePiece[]，并销毁dragPiecePrefab
         又没完成好，原来是自动切到Claude-3.7-Sonnet去了，实在是垃圾，回滚下，Claude-4-Sonnet完成得很好嘛！
+        接下来，噢，手机的触摸不对：
+
+手机上触摸PuzzlePiece[i]且按下时，还没松开的：[UISolvePuzzle] 从拼图切片1创建了拖拽预制体，尺寸：180
+game.js? [sm]:17 [UISolvePuzzle] 恢复了拼图切片1到列表
+game.js? [sm]:17 [UISolvePuzzle] 销毁了拖拽预制体
+
+**问题分析**：
+- 手机上触摸拼图切片时，即使未松开也会立即触发恢复和销毁逻辑
+- 原因是ScrollView的触摸事件与拼图切片的触摸事件产生冲突
+
+**解决方案**：
+将事件监听从节点级别改为全局输入级别，避免ScrollView干扰：
+
+1. **修改触摸事件监听**：
+   - `onPieceTouchStart`方法中，将`this.node.on`改为`input.on`
+   - `onGlobalTouchEnd`方法中，将`this.node.off`改为`input.off`
+
+2. **修改鼠标事件监听**（保持一致性）：
+   - `onPieceMouseDown`方法中，将`this.node.on`改为`input.on`
+   - `onGlobalMouseUp`方法中，将`this.node.off`改为`input.off`
+
+**技术细节**：
+- 使用`input.on(Input.EventType.TOUCH_MOVE/TOUCH_END)`替代`node.on(Node.EventType.TOUCH_MOVE/TOUCH_END)`
+- 使用`input.on(Input.EventType.MOUSE_MOVE/MOUSE_UP)`替代`node.on(Node.EventType.MOUSE_MOVE/MOUSE_UP)`
+- 保留了事件传播阻止逻辑`event.propagationStopped = true`
+
+现在手机上触摸拼图切片时，不会再出现未松开就触发恢复逻辑的问题。
+
+        
     UIFinishPuzzle：完成拼图界面
         按钮：返回选择拼图和难度界面
         按钮：保存拼图图片到手机相册
