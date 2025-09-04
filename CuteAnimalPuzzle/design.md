@@ -63,27 +63,22 @@
 手机上触摸PuzzlePiece[i]且按下时，还没松开的：[UISolvePuzzle] 从拼图切片1创建了拖拽预制体，尺寸：180
 game.js? [sm]:17 [UISolvePuzzle] 恢复了拼图切片1到列表
 game.js? [sm]:17 [UISolvePuzzle] 销毁了拖拽预制体
-
 **问题分析**：
 - 手机上触摸拼图切片时，即使未松开也会立即触发恢复和销毁逻辑
 - 原因是ScrollView的触摸事件与拼图切片的触摸事件产生冲突
-
 **解决方案**：
 将事件监听从节点级别改为全局输入级别，避免ScrollView干扰：
-
 1. **修改触摸事件监听**：
    - `onPieceTouchStart`方法中，将`this.node.on`改为`input.on`
    - `onGlobalTouchEnd`方法中，将`this.node.off`改为`input.off`
-
 2. **修改鼠标事件监听**（保持一致性）：
    - `onPieceMouseDown`方法中，将`this.node.on`改为`input.on`
    - `onGlobalMouseUp`方法中，将`this.node.off`改为`input.off`
-
 **技术细节**：
 - 使用`input.on(Input.EventType.TOUCH_MOVE/TOUCH_END)`替代`node.on(Node.EventType.TOUCH_MOVE/TOUCH_END)`
 - 使用`input.on(Input.EventType.MOUSE_MOVE/MOUSE_UP)`替代`node.on(Node.EventType.MOUSE_MOVE/MOUSE_UP)`
 - 保留了事件传播阻止逻辑`event.propagationStopped = true`
-
+**测试结果**：
 现在手机上触摸拼图切片时，不会再出现未松开就触发恢复逻辑的问题。
 
         
