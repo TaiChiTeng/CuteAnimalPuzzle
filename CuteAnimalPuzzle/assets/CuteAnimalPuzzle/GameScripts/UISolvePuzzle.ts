@@ -74,7 +74,8 @@ export class UISolvePuzzle extends Component {
     private gridRows: number = 3;
     private gridCols: number = 3;
     
-
+    // 容错率，用于计算动态容错距离
+    private toleranceRate: number = 0.45;
 
     start() {
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
@@ -104,6 +105,9 @@ export class UISolvePuzzle extends Component {
     private onBackButtonClick(): void {
         console.log('[UISolvePuzzle] 点击返回选择拼图界面按钮');
         
+        // 执行完整的清理逻辑
+        this.cleanupBeforeExit();
+        
         if (this.uiManager) {
             console.log('[UISolvePuzzle] 准备切换到选择拼图界面');
             this.uiManager.showSelectPuzzleOnly();
@@ -111,6 +115,75 @@ export class UISolvePuzzle extends Component {
             console.error('[UISolvePuzzle] UIManager未初始化，无法切换界面');
         }
      }
+     
+    /**
+     * 退出前的完整清理逻辑
+     */
+    private cleanupBeforeExit(): void {
+        try {
+            console.log('[UISolvePuzzle] 开始执行退出前清理');
+            
+            // 强制清理拖拽状态
+            this.forceCleanupDragState();
+            
+            // 注销全局事件
+            this.unregisterGlobalEvents();
+            
+            // 移除拼图切片的鼠标事件
+            this.removePieceMouseEvents();
+            
+            // 清理dragPieceSlots中的切片
+            this.clearDragPieceSlots();
+            
+            // 清理网格答案槽位
+            this.clearGridAnswerSlots();
+            
+            // 重置状态标志
+            this.isDragging = false;
+            this.isDragFromPuzzleList = false;
+            this.isArrayOperationLocked = false;
+            this.currentDragPiece = null;
+            this.currentDraggedPuzzlePiece = null;
+            
+            console.log('[UISolvePuzzle] 退出前清理完成');
+        } catch (error) {
+            console.error('[UISolvePuzzle] 退出前清理异常:', error);
+        }
+    }
+    
+    /**
+     * 清理dragPieceSlots中的所有切片
+     */
+    private clearDragPieceSlots(): void {
+        try {
+            this.dragPieceSlots.forEach(piece => {
+                if (piece && piece.isValid) {
+                    piece.destroy();
+                }
+            });
+            this.dragPieceSlots.length = 0;
+            console.log('[UISolvePuzzle] 已清理dragPieceSlots');
+        } catch (error) {
+            console.error('[UISolvePuzzle] 清理dragPieceSlots异常:', error);
+        }
+    }
+    
+    /**
+     * 清理网格答案槽位
+     */
+    private clearGridAnswerSlots(): void {
+        try {
+            this.gridAnswerSlots.forEach(slot => {
+                if (slot && slot.isValid) {
+                    slot.destroy();
+                }
+            });
+            this.gridAnswerSlots.length = 0;
+            console.log('[UISolvePuzzle] 已清理gridAnswerSlots');
+        } catch (error) {
+            console.error('[UISolvePuzzle] 清理gridAnswerSlots异常:', error);
+        }
+    }
      
     /**
      * 提示按钮点击事件
@@ -924,15 +997,48 @@ export class UISolvePuzzle extends Component {
         const slotWorldPos = correctSlot.getWorldPosition();
         const distance = Vec3.distance(dragPieceWorldPos, slotWorldPos);
         
-        // 设置容错距离，如果拖拽预制体与正确槽位的距离小于阈值，则认为在正确位置
-        const tolerance = 50; // 可以根据需要调整
+        // 动态计算容错距离：根据拼图难度、网格边长和容错率
+        const tolerance = this.calculateDynamicTolerance();
         
         if (distance <= tolerance) {
-            console.log(`[UISolvePuzzle] 拖拽预制体在正确位置，槽位索引：${correctSlotIndex}，距离：${distance}`);
+            console.log(`[UISolvePuzzle] 拖拽预制体在正确位置，槽位索引：${correctSlotIndex}，距离：${distance}，容错距离：${tolerance}`);
             return correctSlotIndex;
         }
         
         return -1;
+    }
+    
+    /**
+     * 计算动态容错距离
+     * @returns 容错距离
+     */
+    private calculateDynamicTolerance(): number {
+        // 根据拼图难度获取网格尺寸
+        let gridSize: number;
+        switch (this.currentDifficulty) {
+            case PuzzleDifficulty.EASY:
+                gridSize = 3; // 3x3
+                break;
+            case PuzzleDifficulty.MEDIUM:
+                gridSize = 4; // 4x4
+                break;
+            case PuzzleDifficulty.HARD:
+                gridSize = 5; // 5x5
+                break;
+            default:
+                gridSize = 3;
+                break;
+        }
+        
+        // 计算单个网格槽位的边长
+        const slotSize = this.gridSideLength / gridSize;
+        
+        // 容错距离 = 槽位边长 * 容错率
+        const tolerance = slotSize * this.toleranceRate;
+        
+        console.log(`[UISolvePuzzle] 动态容错距离计算 - 难度：${this.currentDifficulty}，网格尺寸：${gridSize}x${gridSize}，网格边长：${this.gridSideLength}，槽位边长：${slotSize}，容错率：${this.toleranceRate}，容错距离：${tolerance}`);
+        
+        return tolerance;
     }
     
     /**
@@ -1413,16 +1519,47 @@ export class UISolvePuzzle extends Component {
      * 打乱拼图切片顺序
      */
     private shufflePieces(): void {
-        // TODO: 打乱拼图切片顺序
-    }
-
-    /**
-     * 将拼图切片放置到正确位置
-     */
-    private placePieceInCorrectPosition(piece: PuzzlePiece, slot: Node): void {
-        // TODO: 拼图切片的槽位正确则按正确大小放置好
+        if (!this.puzzlePieces || this.puzzlePieces.length === 0) {
+            console.warn('[UISolvePuzzle] 没有拼图切片可以打乱');
+            return;
+        }
+        
+        console.log(`[UISolvePuzzle] 开始打乱${this.puzzlePieces.length}个拼图切片`);
+        
+        // 使用Fisher-Yates洗牌算法打乱数组
+        for (let i = this.puzzlePieces.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            
+            // 交换数组中的元素
+            [this.puzzlePieces[i], this.puzzlePieces[j]] = [this.puzzlePieces[j], this.puzzlePieces[i]];
+        }
+        
+        // 重新排列UI中的拼图切片位置
+        this.rearrangePuzzlePiecesInUI();
+        
+        console.log('[UISolvePuzzle] 拼图切片打乱完成');
     }
     
+    /**
+     * 重新排列UI中的拼图切片位置
+     */
+    private rearrangePuzzlePiecesInUI(): void {
+        if (!this.pieceContent) {
+            console.error('[UISolvePuzzle] pieceContent未找到，无法重新排列UI');
+            return;
+        }
+        
+        // 按照打乱后的顺序重新设置每个切片在父节点中的位置
+        this.puzzlePieces.forEach((puzzlePiece, index) => {
+            if (puzzlePiece && puzzlePiece.node && puzzlePiece.node.isValid) {
+                // 将节点移动到对应的索引位置
+                puzzlePiece.node.setSiblingIndex(index);
+            }
+        });
+        
+        console.log('[UISolvePuzzle] UI中的拼图切片位置重新排列完成');
+    }
+
     /**
      * 检查拼图是否完成
      */
