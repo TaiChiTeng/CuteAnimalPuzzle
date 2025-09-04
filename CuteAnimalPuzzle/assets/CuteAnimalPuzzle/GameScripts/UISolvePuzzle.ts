@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform} from 'cc';
+import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform, Vec3} from 'cc';
 import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzlePiece } from './PuzzlePiece';
@@ -15,9 +15,10 @@ export class UISolvePuzzle extends Component {
 
     @property(Node)
     public hintImage: Node = null;  // 拼图提示图片
-
     @property(Node)
-    public puzzleGrid: Node = null;  // 拼图网格区域
+    public puzzleAnswers: Node = null;  // 拼图答案父节点
+    @property(Node)
+    public puzzleGrid: Node = null;  // 拼图网格父节点
 
     @property(Node)
     public dragArea: Node = null;    // 拖拽区域
@@ -32,8 +33,9 @@ export class UISolvePuzzle extends Component {
     public puzzlePiecePrefab: Prefab = null;
 
     @property(Prefab)
+    public gridPieceAnswerPrefab: Prefab = null;
+    @property(Prefab)
     public gridPiecePrefab: Prefab = null;
-
     @property(SpriteFrame)
     public gridSpriteFrame0: SpriteFrame = null;
 
@@ -44,6 +46,7 @@ export class UISolvePuzzle extends Component {
     private uiManager: UIManager = null;
     private puzzlePieces: PuzzlePiece[] = [];
     private gridSlots: Node[] = [];  // 网格槽位
+    private gridAnswerSlots: Node[] = [];  // 答案槽位
     private gridSideLength: number = 660;  // 网格边长
     private currentPuzzleId: number = 1;
     private currentDifficulty: PuzzleDifficulty = PuzzleDifficulty.EASY;
@@ -209,12 +212,98 @@ export class UISolvePuzzle extends Component {
                 }
             }
             
+            // 添加点击事件监听器
+            slotNode.on(Node.EventType.TOUCH_END, () => {
+                this.onGridSlotClicked(i);
+            }, this);
+            
             // 添加到网格区域
             this.puzzleGrid.addChild(slotNode);
             this.gridSlots.push(slotNode);
         }
         
         console.log(`[UISolvePuzzle] 创建了${totalSlots}个网格槽位，网格大小：${this.gridRows}x${this.gridCols}，槽位尺寸：${slotSize}`);
+    }
+
+    /**
+     * 处理网格槽位点击事件
+     */
+    private onGridSlotClicked(slotIndex: number): void {
+        if (!this.gridPieceAnswerPrefab || !this.puzzleAnswers || slotIndex < 0 || slotIndex >= this.gridSlots.length) {
+            console.error('[UISolvePuzzle] gridPieceAnswerPrefab或puzzleAnswers未设置或槽位索引无效');
+            return;
+        }
+        
+        const slotNode = this.gridSlots[slotIndex];
+        if (!slotNode) {
+            console.error('[UISolvePuzzle] 找不到对应的网格槽位');
+            return;
+        }
+        
+        // 检查是否已经存在答案切片，如果存在则移除
+        if (this.gridAnswerSlots[slotIndex]) {
+            this.gridAnswerSlots[slotIndex].destroy();
+            this.gridAnswerSlots[slotIndex] = null;
+            return;
+        }
+        
+        // 创建答案切片
+        const answerPiece = instantiate(this.gridPieceAnswerPrefab);
+        if (!answerPiece) {
+            console.error('[UISolvePuzzle] 无法创建答案切片');
+            return;
+        }
+        
+        // 设置名称便于识别
+        answerPiece.name = `AnswerPiece_${slotIndex}`;
+        
+        // 设置答案切片的尺寸与槽位一致
+        const slotTransform = slotNode.getComponent(UITransform);
+        const answerTransform = answerPiece.getComponent(UITransform);
+        if (slotTransform && answerTransform) {
+            answerTransform.setContentSize(slotTransform.contentSize);
+        }
+        
+        // 设置答案切片的位置与槽位一致
+        const slotWorldPos = slotNode.getWorldPosition();
+        const puzzleAnswersWorldPos = this.puzzleAnswers.getWorldPosition();
+        const localPos = new Vec3();
+        this.puzzleAnswers.getComponent(UITransform).convertToNodeSpaceAR(slotWorldPos, localPos);
+        answerPiece.setPosition(localPos);
+        
+        // 设置答案切片的图片
+        this.setupAnswerPieceSprite(answerPiece, slotIndex);
+        
+        // 将答案切片添加到puzzleAnswers父节点
+        this.puzzleAnswers.addChild(answerPiece);
+        
+        // 保存到答案槽位数组
+        this.gridAnswerSlots[slotIndex] = answerPiece;
+        
+        console.log(`[UISolvePuzzle] 在puzzleAnswers下创建了槽位${slotIndex}的答案切片`);
+    }
+    
+    /**
+     * 设置答案切片的图片
+     */
+    private setupAnswerPieceSprite(answerPiece: Node, slotIndex: number): void {
+        const sprite = answerPiece.getComponent(Sprite);
+        const resourceManager = PuzzleResourceManager.instance;
+        
+        if (sprite && resourceManager) {
+            const pieceSpriteFrame = resourceManager.getPuzzlePiece(
+                this.currentPuzzleId, 
+                this.gridRows, 
+                this.gridCols, 
+                slotIndex
+            );
+            
+            if (pieceSpriteFrame) {
+                sprite.spriteFrame = pieceSpriteFrame;
+            } else {
+                console.warn(`[UISolvePuzzle] 无法获取槽位${slotIndex}的拼图切片图片`);
+            }
+        }
     }
 
     /**
@@ -321,8 +410,18 @@ export class UISolvePuzzle extends Component {
      * 清理网格槽位
      */
     private clearGridSlots(): void {
+        // 清理答案切片
+        for (let i = 0; i < this.gridAnswerSlots.length; i++) {
+            if (this.gridAnswerSlots[i] && this.gridAnswerSlots[i].isValid) {
+                this.gridAnswerSlots[i].destroy();
+            }
+        }
+        this.gridAnswerSlots = [];
+        
         for (const slot of this.gridSlots) {
             if (slot && slot.isValid) {
+                // 移除事件监听器
+                slot.off(Node.EventType.TOUCH_END);
                 slot.destroy();
             }
         }
