@@ -59,6 +59,7 @@ export class UISolvePuzzle extends Component {
     private dragPieceSlots: Node[] = [];  // 拖拽出列表的拼图切片数组
     private dragSideLength: number = 720;  // 拖拽出列表的拼图切片总边长
     private currentDragPiece: Node = null;  // 当前正在拖动的拼图切片
+    private currentDraggedPuzzlePiece: PuzzlePiece = null;  // 当前被拖拽的原始拼图切片
     private gridSideLength: number = 660;  // 网格边长
     private currentPuzzleId: number = 1;
     private currentDifficulty: PuzzleDifficulty = PuzzleDifficulty.EASY;
@@ -74,8 +75,7 @@ export class UISolvePuzzle extends Component {
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.on(Button.EventType.CLICK, this.onHintButtonClick, this);
         
-        // 绑定鼠标事件
-        this.setupMouseEvents();
+        // 不再在dragArea上绑定鼠标事件，改为在拼图切片上绑定
     }
 
     onDestroy() {
@@ -83,8 +83,8 @@ export class UISolvePuzzle extends Component {
         this.btnBack?.node.off(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.off(Button.EventType.CLICK, this.onHintButtonClick, this);
         
-        // 移除鼠标事件
-        this.removeMouseEvents();
+        // 移除拼图切片的鼠标事件
+        this.removePieceMouseEvents();
         
         // 清理拼图切片
         this.clearPuzzlePieces();
@@ -121,67 +121,71 @@ export class UISolvePuzzle extends Component {
     }
 
     /**
-     * 设置鼠标事件
+     * 为拼图切片设置鼠标事件
      */
-    private setupMouseEvents(): void {
-        if (!this.dragArea) {
-            console.error('[UISolvePuzzle] dragArea未设置，无法绑定鼠标事件');
-            return;
-        }
+    private setupPieceMouseEvents(pieceNode: Node, puzzlePiece: PuzzlePiece): void {
+        if (!pieceNode || !puzzlePiece) return;
         
         // 添加鼠标按下事件
-        this.dragArea.on(Node.EventType.MOUSE_DOWN, this.onMouseDown, this);
-        // 添加鼠标移动事件
-        this.dragArea.on(Node.EventType.MOUSE_MOVE, this.onMouseMove, this);
-        // 添加鼠标松开事件
-        this.dragArea.on(Node.EventType.MOUSE_UP, this.onMouseUp, this);
+        pieceNode.on(Node.EventType.MOUSE_DOWN, (event: EventMouse) => {
+            this.onPieceMouseDown(event, puzzlePiece);
+        }, this);
         
-        // 不再在鼠标离开时触发onMouseUp，允许鼠标移出区域继续拖动
+        // 添加触摸开始事件（兼容移动设备）
+        pieceNode.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            this.onPieceTouchStart(event, puzzlePiece);
+        }, this);
         
-        // 添加触摸事件（兼容移动设备）
-        this.dragArea.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
-        this.dragArea.on(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
-        this.dragArea.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
-        this.dragArea.on(Node.EventType.TOUCH_CANCEL, this.onTouchEnd, this);
-        
-        console.log('[UISolvePuzzle] 已绑定鼠标和触摸事件');
+        console.log(`[UISolvePuzzle] 为拼图切片${puzzlePiece.pieceIndex}绑定了鼠标和触摸事件`);
     }
     
     /**
-     * 移除鼠标事件
+     * 移除拼图切片的鼠标事件
      */
-    private removeMouseEvents(): void {
-        if (!this.dragArea) return;
+    private removePieceMouseEvents(): void {
+        this.puzzlePieces.forEach(puzzlePiece => {
+            if (puzzlePiece && puzzlePiece.node && puzzlePiece.node.isValid) {
+                puzzlePiece.node.off(Node.EventType.MOUSE_DOWN);
+                puzzlePiece.node.off(Node.EventType.TOUCH_START);
+            }
+        });
         
-        // 移除鼠标事件
-        this.dragArea.off(Node.EventType.MOUSE_DOWN, this.onMouseDown, this);
-        this.dragArea.off(Node.EventType.MOUSE_MOVE, this.onMouseMove, this);
-        this.dragArea.off(Node.EventType.MOUSE_UP, this.onMouseUp, this);
-        // 不再需要移除MOUSE_LEAVE事件
-        
-        // 移除触摸事件
-        this.dragArea.off(Node.EventType.TOUCH_START, this.onTouchStart, this);
-        this.dragArea.off(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
-        this.dragArea.off(Node.EventType.TOUCH_END, this.onTouchEnd, this);
-        this.dragArea.off(Node.EventType.TOUCH_CANCEL, this.onTouchEnd, this);
-        
-        console.log('[UISolvePuzzle] 已移除鼠标和触摸事件');
+        console.log('[UISolvePuzzle] 已移除拼图切片的鼠标和触摸事件');
     }
     
     /**
-     * 鼠标按下事件处理
+     * 拼图切片鼠标按下事件处理
      */
-    private onMouseDown(event: EventMouse): void {
-        if (!this.dragPiecePrefab || !this.dragArea) return;
+    private onPieceMouseDown(event: EventMouse, puzzlePiece: PuzzlePiece): void {
+        if (!this.dragPiecePrefab || !this.dragArea || !puzzlePiece) return;
         
-        // 创建拖拽预制体
-        this.createDragPiece(event.getUILocation().x, event.getUILocation().y);
+        // 创建拖拽预制体并从列表中移除原切片
+        this.createDragPieceFromPuzzlePiece(event.getUILocation().x, event.getUILocation().y, puzzlePiece);
+        
+        // 添加全局鼠标移动和松开事件监听
+        this.node.on(Node.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
+        this.node.on(Node.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
     }
     
     /**
-     * 鼠标移动事件处理
+     * 拼图切片触摸开始事件处理（兼容移动设备）
      */
-    private onMouseMove(event: EventMouse): void {
+    private onPieceTouchStart(event: EventTouch, puzzlePiece: PuzzlePiece): void {
+        if (!this.dragPiecePrefab || !this.dragArea || !puzzlePiece) return;
+        
+        // 创建拖拽预制体并从列表中移除原切片
+        this.createDragPieceFromPuzzlePiece(event.getUILocation().x, event.getUILocation().y, puzzlePiece);
+        
+        // 添加全局触摸移动和结束事件监听
+        this.node.on(Node.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
+        this.node.on(Node.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
+        this.node.on(Node.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
+    }
+    
+    /**
+     * 全局鼠标移动事件处理
+     */
+    private onGlobalMouseMove(event: EventMouse): void {
         if (!this.currentDragPiece) return;
         
         // 更新拖拽预制体位置
@@ -189,27 +193,21 @@ export class UISolvePuzzle extends Component {
     }
     
     /**
-     * 鼠标松开事件处理
+     * 全局鼠标松开事件处理
      */
-    private onMouseUp(event: EventMouse): void {
-        // 删除拖拽预制体
-        this.destroyDragPiece();
-    }
-    
-    /**
-     * 触摸开始事件处理（兼容移动设备）
-     */
-    private onTouchStart(event: EventTouch): void {
-        if (!this.dragPiecePrefab || !this.dragArea) return;
+    private onGlobalMouseUp(event: EventMouse): void {
+        // 恢复拼图切片到列表并删除拖拽预制体
+        this.restorePuzzlePieceAndDestroyDrag();
         
-        // 创建拖拽预制体
-        this.createDragPiece(event.getUILocation().x, event.getUILocation().y);
+        // 移除全局事件监听
+        this.node.off(Node.EventType.MOUSE_MOVE, this.onGlobalMouseMove, this);
+        this.node.off(Node.EventType.MOUSE_UP, this.onGlobalMouseUp, this);
     }
     
     /**
-     * 触摸移动事件处理（兼容移动设备）
+     * 全局触摸移动事件处理（兼容移动设备）
      */
-    private onTouchMove(event: EventTouch): void {
+    private onGlobalTouchMove(event: EventTouch): void {
         if (!this.currentDragPiece) return;
         
         // 更新拖拽预制体位置
@@ -217,19 +215,36 @@ export class UISolvePuzzle extends Component {
     }
     
     /**
-     * 触摸结束事件处理（兼容移动设备）
+     * 全局触摸结束事件处理（兼容移动设备）
      */
-    private onTouchEnd(event: EventTouch): void {
-        // 删除拖拽预制体
-        this.destroyDragPiece();
+    private onGlobalTouchEnd(event: EventTouch): void {
+        // 恢复拼图切片到列表并删除拖拽预制体
+        this.restorePuzzlePieceAndDestroyDrag();
+        
+        // 移除全局事件监听
+        this.node.off(Node.EventType.TOUCH_MOVE, this.onGlobalTouchMove, this);
+        this.node.off(Node.EventType.TOUCH_END, this.onGlobalTouchEnd, this);
+        this.node.off(Node.EventType.TOUCH_CANCEL, this.onGlobalTouchEnd, this);
     }
     
     /**
-     * 创建拖拽预制体
+     * 从拼图切片创建拖拽预制体
      */
-    private createDragPiece(x: number, y: number): void {
+    private createDragPieceFromPuzzlePiece(x: number, y: number, puzzlePiece: PuzzlePiece): void {
         // 如果已经存在拖拽预制体，先销毁
         this.destroyDragPiece();
+        
+        // 记录当前被拖拽的拼图切片
+        this.currentDraggedPuzzlePiece = puzzlePiece;
+        
+        // 从列表中移除拼图切片
+        const pieceIndex = this.puzzlePieces.indexOf(puzzlePiece);
+        if (pieceIndex !== -1) {
+            this.puzzlePieces.splice(pieceIndex, 1);
+        }
+        
+        // 隐藏原拼图切片节点
+        puzzlePiece.node.active = false;
         
         // 创建新的拖拽预制体
         this.currentDragPiece = instantiate(this.dragPiecePrefab);
@@ -248,26 +263,26 @@ export class UISolvePuzzle extends Component {
             uiTransform.setContentSize(pieceSize, pieceSize);
         }
         
-        // 设置拖拽预制体图片（与puzzlePieces[0]相同）
+        // 设置拖拽预制体图片（与被拖拽的拼图切片相同）
         const sprite = this.currentDragPiece.getComponent(Sprite);
         const resourceManager = PuzzleResourceManager.instance;
         
-        if (sprite && resourceManager && this.puzzlePieces.length > 0) {
-            // 获取第一个拼图切片的索引
-            const firstPieceIndex = this.puzzlePieces[0].pieceIndex;
+        if (sprite && resourceManager && puzzlePiece) {
+            // 获取被拖拽拼图切片的索引
+            const pieceIndex = puzzlePiece.pieceIndex;
             
             // 获取对应的图片
             const pieceSpriteFrame = resourceManager.getPuzzlePiece(
                 this.currentPuzzleId, 
                 this.gridRows, 
                 this.gridCols, 
-                firstPieceIndex
+                pieceIndex
             );
             
             if (pieceSpriteFrame) {
                 sprite.spriteFrame = pieceSpriteFrame;
             } else {
-                console.warn('[UISolvePuzzle] 无法获取拖拽预制体的图片');
+                console.warn(`[UISolvePuzzle] 无法获取拖拽预制体的图片，索引：${pieceIndex}`);
             }
         }
         
@@ -277,7 +292,7 @@ export class UISolvePuzzle extends Component {
         // 设置拖拽预制体位置
         this.updateDragPiecePosition(x, y);
         
-        console.log('[UISolvePuzzle] 创建了拖拽预制体，尺寸：' + pieceSize);
+        console.log(`[UISolvePuzzle] 从拼图切片${puzzlePiece.pieceIndex}创建了拖拽预制体，尺寸：${pieceSize}`);
     }
     
     /**
@@ -321,6 +336,27 @@ export class UISolvePuzzle extends Component {
         
         // 设置拖拽预制体位置
         this.currentDragPiece.setPosition(localPos);
+    }
+    
+    /**
+     * 恢复拼图切片到列表并销毁拖拽预制体
+     */
+    private restorePuzzlePieceAndDestroyDrag(): void {
+        if (this.currentDraggedPuzzlePiece) {
+            // 恢复原拼图切片的显示
+            this.currentDraggedPuzzlePiece.node.active = true;
+            
+            // 将拼图切片重新添加到列表
+            this.puzzlePieces.push(this.currentDraggedPuzzlePiece);
+            
+            console.log(`[UISolvePuzzle] 恢复了拼图切片${this.currentDraggedPuzzlePiece.pieceIndex}到列表`);
+            
+            // 清空当前被拖拽的拼图切片引用
+            this.currentDraggedPuzzlePiece = null;
+        }
+        
+        // 销毁拖拽预制体
+        this.destroyDragPiece();
     }
     
     /**
@@ -569,7 +605,8 @@ export class UISolvePuzzle extends Component {
             // 设置拼图切片图片（这里需要根据实际需求实现切片逻辑）
             this.setupPieceSprite(pieceNode, i);
             
-            // TODO: 设置拖拽回调
+            // 为拼图切片添加鼠标事件
+            this.setupPieceMouseEvents(pieceNode, puzzlePiece);
             
             // 添加到滚动列表
             this.pieceContent.addChild(pieceNode);
