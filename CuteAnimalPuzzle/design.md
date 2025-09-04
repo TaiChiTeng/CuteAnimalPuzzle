@@ -93,8 +93,286 @@ game.js? [sm]:17 [UISolvePuzzle] 销毁了拖拽预制体
                 （4）限制dragPiecePrefab在dragArea区域内，当且仅当松开鼠标/不再屏幕触摸时：
                     （4.1）如果此时dragPiecePrefab在正确位置，就走创建gridPieceAnswerPrefab的流程，并且销毁拖拽副本，然后检查是否所有拼图切片都在正确位置，如果是则更新存档并打开完成拼图界面
                     （4.2）如果此时dragPiecePrefab不在正确位置，就判断此时是否在拼图切片列表的范围内：
-                            （4.2.1）如果不在拼图切片列表的范围内，就创建一个未拼好的拼图切片(也是用预制体dragPiecePrefab)，停留在松开位置，添加进dragPieceSlots[]来存储，销毁拖拽副本
+                            （4.2.1）如果不在拼图切片列表的范围内，就将dragPiecePrefab停留在松开位置，添加回dragPieceSlots[]来存储，销毁拖拽副本
                             （4.2.2）如果在拼图切片列表的范围内，就根据最近的位置插入回列表，销毁拖拽副本
+
+                isInPieceListRange() - 检测是否在拼图切片列表范围内（使用 pieceScrollView 的边界）
+
+呼呼，没想到dragPieceSlots的需求，ai错了很多，查错修错多次，下面这次才终于对了：
+         
+我需要分析为什么从dragPieceSlots拖回列表的切片在UI中不可见。问题可能出现在createDragPieceFromDragPiece方法中，当从dragPieceSlots创建拖拽副本时，可能没有正确设置currentDraggedPuzzlePiece，导致insertPieceBackToList方法无法找到正确的PuzzlePiece对象。
+        
+            
+toolName: view_files
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+我发现问题了！在createDragPieceFromDragPiece方法中，创建的临时PuzzlePiece对象只有pieceIndex和node属性，但缺少其他重要属性。更关键的是，当从dragPieceSlots拖回列表时，insertPieceBackToList方法试图将这个临时对象插入到puzzlePieces数组中，但这个临时对象并不是一个完整的PuzzlePiece实例。我需要修改逻辑，确保从dragPieceSlots拖回列表时能正确创建完整的PuzzlePiece对象。
+        
+            
+toolName: view_files
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+我需要修改insertPieceBackToList方法，为从dragPieceSlots拖回列表的情况创建一个新的完整PuzzlePiece对象，而不是试图插入临时的PuzzlePiece对象。
+        
+            
+toolName: edit_file_update
+            
+status: failed
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+          
+我需要查看insertPieceBackToList方法的最新内容，然后进行正确的修改。
+        
+            
+toolName: view_files
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+我需要查看createDragPieceFromDragPiece方法的完整实现，以了解从dragPieceSlots拖拽时如何设置currentDraggedPuzzlePiece。
+        
+            
+toolName: view_files
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+现在我明白问题所在了。createDragPieceFromDragPiece方法创建的临时PuzzlePiece对象只有pieceIndex和node属性，缺少其他重要属性。我需要查看PuzzlePiece类的完整定义，然后修改insertPieceBackToList方法来正确处理从dragPieceSlots拖回的切片。
+        
+            
+toolName: view_files
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\PuzzlePiece.ts
+          
+现在我了解了PuzzlePiece类的结构。问题在于从dragPieceSlots拖回列表时，临时创建的PuzzlePiece对象缺少correctRow和correctCol等重要属性。我需要修改insertPieceBackToList方法，为从dragPieceSlots拖回的切片创建一个完整的PuzzlePiece对象。
+        
+            
+toolName: edit_file_update
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+changes: 
+              
+newStr:     private insertPieceBackToList(): void {
+        if (!this.currentDraggedPuzzlePiece || !this.pieceContent) {
+            console.error('[UISolvePuzzle] 无法插入回列表，缺少必要参数');
+            return;
+        }
+        
+        let puzzlePieceToInsert = this.currentDraggedPuzzlePiece;
+        
+        // 如果来自dragPieceSlots，需要创建完整的PuzzlePiece对象
+        if (!this.isDragFromPuzzleList) {
+            this.safeRemoveFromDragPieceSlots(this.currentDraggedPuzzlePiece.node);
+            
+            // 创建新的完整PuzzlePiece节点
+            const newPieceNode = instantiate(this.puzzlePiecePrefab);
+            if (!newPieceNode) {
+                console.error('[UISolvePuzzle] 无法创建新的拼图切片节点');
+                return;
+            }
+            
+            // 获取PuzzlePiece组件并设置属性
+            const puzzlePieceComponent = newPieceNode.getComponent(PuzzlePiece);
+            if (puzzlePieceComponent) {
+                const pieceIndex = this.currentDraggedPuzzlePiece.pieceIndex;
+                const correctRow = Math.floor(pieceIndex / this.gridCols);
+                const correctCol = pieceIndex % this.gridCols;
+                puzzlePieceComponent.setPieceInfo(pieceIndex, correctRow, correctCol);
+            }
+            
+            // 设置切片图片（复制原dragPieceSlots节点的图片）
+            this.setupPieceSprite(newPieceNode, this.currentDraggedPuzzlePiece.pieceIndex);
+            
+            // 销毁原dragPieceSlots节点
+            this.currentDraggedPuzzlePiece.node.destroy();
+            
+            // 更新要插入的切片对象
+            puzzlePieceToInsert = puzzlePieceComponent;
+            
+            console.log(`[UISolvePuzzle] 为dragPieceSlots切片${this.currentDraggedPuzzlePiece.pieceIndex}创建了新的完整PuzzlePiece对象`);
+        } else {
+            // 恢复原拼图切片的显示
+            this.currentDraggedPuzzlePiece.node.active = true;
+        }
+        
+        // 如果列表为空，直接添加
+        if (this.puzzlePieces.length === 0) {
+            this.safeAddToPuzzlePieces(puzzlePieceToInsert);
+            this.pieceContent.addChild(puzzlePieceToInsert.node);
+            console.log(`[UISolvePuzzle] 将切片${puzzlePieceToInsert.pieceIndex}插入到空列表，当前列表数量：${this.puzzlePieces.length}`);
+            
+            // 重新设置事件监听
+            this.setupPieceMouseEvents(puzzlePieceToInsert.node, puzzlePieceToInsert);
+            
+            // 重新排列UI中的切片位置
+            this.rearrangePuzzlePiecesInUI();
+            return;
+        }
+              
+oldStr:     private insertPieceBackToList(): void {
+        if (!this.currentDraggedPuzzlePiece || !this.pieceContent) {
+            console.error('[UISolvePuzzle] 无法插入回列表，缺少必要参数');
+            return;
+        }
+        
+        // 如果来自dragPieceSlots，需要先从dragPieceSlots中移除
+        if (!this.isDragFromPuzzleList) {
+            this.safeRemoveFromDragPieceSlots(this.currentDraggedPuzzlePiece.node);
+        }
+        
+        // 恢复原拼图切片的显示
+        this.currentDraggedPuzzlePiece.node.active = true;
+        
+        // 如果列表为空，直接添加
+        if (this.puzzlePieces.length === 0) {
+            // 重新激活节点（如果来自dragPieceSlots可能被隐藏了）
+            this.currentDraggedPuzzlePiece.node.active = true;
+            
+            this.safeAddToPuzzlePieces(this.currentDraggedPuzzlePiece);
+            this.pieceContent.addChild(this.currentDraggedPuzzlePiece.node);
+            console.log(`[UISolvePuzzle] 将切片${this.currentDraggedPuzzlePiece.pieceIndex}插入到空列表，当前列表数量：${this.puzzlePieces.length}`);
+            
+            // 重新设置事件监听
+            this.setupPieceMouseEvents(this.currentDraggedPuzzlePiece.node, this.currentDraggedPuzzlePiece);
+            return;
+        }
+            
+          
+现在我需要继续修改insertPieceBackToList方法的非空列表处理部分，确保使用新创建的puzzlePieceToInsert对象。
+        
+            
+toolName: edit_file_update
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+changes: 
+              
+newStr:         // 获取拖拽预制体的位置
+        const dragPieceWorldPos = this.currentDragPiece ? this.currentDragPiece.getWorldPosition() : new Vec3();
+        
+        let insertIndex = 0;
+        let minDistance = Number.MAX_VALUE;
+        
+        // 找到距离最近的拼图切片位置
+        for (let i = 0; i < this.puzzlePieces.length; i++) {
+            const piece = this.puzzlePieces[i];
+            if (piece && piece.node && piece.node.isValid) {
+                const pieceWorldPos = piece.node.getWorldPosition();
+                const distance = Vec3.distance(dragPieceWorldPos, pieceWorldPos);
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    insertIndex = i;
+                }
+            }
+        }
+        
+        // 插入到最近位置
+        this.puzzlePieces.splice(insertIndex, 0, puzzlePieceToInsert);
+        
+        // 重新排列pieceContent中的子节点顺序
+        puzzlePieceToInsert.node.removeFromParent();
+        this.pieceContent.insertChild(puzzlePieceToInsert.node, insertIndex);
+        
+        console.log(`[UISolvePuzzle] 将切片${puzzlePieceToInsert.pieceIndex}插入到列表位置${insertIndex}，当前列表数量：${this.puzzlePieces.length}`);
+        
+        // 重新设置事件监听
+        this.setupPieceMouseEvents(puzzlePieceToInsert.node, puzzlePieceToInsert);
+        
+        // 重新排列UI中的切片位置
+        this.rearrangePuzzlePiecesInUI();
+              
+oldStr:         // 获取拖拽预制体的位置
+        const dragPieceWorldPos = this.currentDragPiece ? this.currentDragPiece.getWorldPosition() : new Vec3();
+        
+        let insertIndex = 0;
+        let minDistance = Number.MAX_VALUE;
+        
+        // 找到距离最近的拼图切片位置
+        for (let i = 0; i < this.puzzlePieces.length; i++) {
+            const piece = this.puzzlePieces[i];
+            if (piece && piece.node && piece.node.isValid) {
+                const pieceWorldPos = piece.node.getWorldPosition();
+                const distance = Vec3.distance(dragPieceWorldPos, pieceWorldPos);
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    insertIndex = i;
+                }
+            }
+        }
+        
+        // 重新激活节点（如果来自dragPieceSlots可能被隐藏了）
+        this.currentDraggedPuzzlePiece.node.active = true;
+        
+        // 插入到最近位置
+        this.puzzlePieces.splice(insertIndex, 0, this.currentDraggedPuzzlePiece);
+        
+        // 重新排列pieceContent中的子节点顺序
+        this.currentDraggedPuzzlePiece.node.removeFromParent();
+        this.pieceContent.insertChild(this.currentDraggedPuzzlePiece.node, insertIndex);
+        
+        console.log(`[UISolvePuzzle] 将切片${this.currentDraggedPuzzlePiece.pieceIndex}插入到列表位置${insertIndex}，当前列表数量：${this.puzzlePieces.length}`);
+        
+        // 重新设置事件监听
+        this.setupPieceMouseEvents(this.currentDraggedPuzzlePiece.node, this.currentDraggedPuzzlePiece);
+            
+          
+我需要确保在文件顶部导入了instantiate函数，因为我在insertPieceBackToList方法中使用了它。
+        
+            
+toolName: view_files
+            
+status: success
+          
+            
+filePath: e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts
+          
+我已经成功修复了 `dragPieceSlots` 切片拖回列表后在UI中不可见的问题。
+
+**问题根源：**
+从 `dragPieceSlots` 拖拽的切片使用的是临时创建的 `PuzzlePiece` 对象，只包含 `pieceIndex` 和 `node` 属性，缺少 `correctRow`、`correctCol` 等完整属性，导致插入回列表时无法正常显示。
+
+**修复方案：**
+在 <mcfile name="UISolvePuzzle.ts" path="e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts"></mcfile> 文件的 <mcsymbol name="insertPieceBackToList" filename="UISolvePuzzle.ts" path="e:\MyGitHub\CuteAnimalPuzzle\CuteAnimalPuzzle\assets\CuteAnimalPuzzle\GameScripts\UISolvePuzzle.ts" startline="1136" type="function"></mcsymbol> 方法中进行了以下关键修改：
+
+1. **创建完整的PuzzlePiece对象：** 当从 `dragPieceSlots` 拖回列表时，使用 `puzzlePiecePrefab` 创建新的完整节点，而不是使用临时对象
+
+2. **正确设置切片属性：** 通过 `setPieceInfo` 方法设置正确的 `pieceIndex`、`correctRow` 和 `correctCol` 属性
+
+3. **复制图片资源：** 使用 `setupPieceSprite` 方法为新节点设置正确的切片图片
+
+4. **清理原节点：** 销毁原 `dragPieceSlots` 节点，避免资源泄漏
+
+5. **统一处理逻辑：** 无论是空列表还是非空列表插入，都使用统一的 `puzzlePieceToInsert` 对象，确保逻辑一致性
+
+6. **UI重新排列：** 在插入完成后调用 `rearrangePuzzlePiecesInUI()` 确保UI正确显示
+
+现在，从 `dragPieceSlots` 拖回列表的切片将能够正确显示在UI中，并具有完整的交互功能。
 
     UIFinishPuzzle：完成拼图界面
         按钮：返回选择拼图和难度界面
