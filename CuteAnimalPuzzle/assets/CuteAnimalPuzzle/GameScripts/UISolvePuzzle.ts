@@ -15,8 +15,10 @@ export class UISolvePuzzle extends Component {
 
     @property(Node)
     public hintImage: Node = null;  // 拼图提示图片
+    
     @property(Node)
     public puzzleAnswers: Node = null;  // 拼图答案父节点
+
     @property(Node)
     public puzzleGrid: Node = null;  // 拼图网格父节点
 
