@@ -29,16 +29,23 @@ export class UISolvePuzzle extends Component {
     @property(Node)
     public pieceContent: Node = null;
 
+    // 从底部列表拖拽出来，未正确放入网格的拼图切片预制体
+    @property(Prefab)
+    public dragPiecePrefab: Prefab = null;
+
+    // 底部列表的拼图切片预制体
     @property(Prefab)
     public puzzlePiecePrefab: Prefab = null;
 
+    // 网格拼图切片答案预制体，用于显示正确的拼图位置
     @property(Prefab)
     public gridPieceAnswerPrefab: Prefab = null;
+
+    // 网格拼图切片预制体，类似国际象棋的棋盘格子相间一黑一白的效果
     @property(Prefab)
     public gridPiecePrefab: Prefab = null;
     @property(SpriteFrame)
     public gridSpriteFrame0: SpriteFrame = null;
-
     @property(SpriteFrame)
     public gridSpriteFrame1: SpriteFrame = null;
 
@@ -47,6 +54,7 @@ export class UISolvePuzzle extends Component {
     private puzzlePieces: PuzzlePiece[] = [];
     private gridSlots: Node[] = [];  // 网格槽位
     private gridAnswerSlots: Node[] = [];  // 答案槽位
+    private dragPieceSlots: Node[] = [];  // 拖拽出列表的拼图切片数组
     private gridSideLength: number = 660;  // 网格边长
     private currentPuzzleId: number = 1;
     private currentDifficulty: PuzzleDifficulty = PuzzleDifficulty.EASY;
