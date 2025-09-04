@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform, Vec3} from 'cc';
+import { _decorator, Component, Node, Button, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, UITransform, Vec3, EventMouse, input, Input, EventTouch, UIOpacity} from 'cc';
 import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzlePiece } from './PuzzlePiece';
@@ -55,6 +55,8 @@ export class UISolvePuzzle extends Component {
     private gridSlots: Node[] = [];  // 网格槽位
     private gridAnswerSlots: Node[] = [];  // 答案槽位
     private dragPieceSlots: Node[] = [];  // 拖拽出列表的拼图切片数组
+    private dragSideLength: number = 720;  // 拖拽出列表的拼图切片总边长
+    private currentDragPiece: Node = null;  // 当前正在拖动的拼图切片
     private gridSideLength: number = 660;  // 网格边长
     private currentPuzzleId: number = 1;
     private currentDifficulty: PuzzleDifficulty = PuzzleDifficulty.EASY;
@@ -69,12 +71,18 @@ export class UISolvePuzzle extends Component {
         // 绑定按钮事件
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.on(Button.EventType.CLICK, this.onHintButtonClick, this);
+        
+        // 绑定鼠标事件
+        this.setupMouseEvents();
     }
 
     onDestroy() {
         // 移除事件监听
         this.btnBack?.node.off(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.off(Button.EventType.CLICK, this.onHintButtonClick, this);
+        
+        // 移除鼠标事件
+        this.removeMouseEvents();
         
         // 清理拼图切片
         this.clearPuzzlePieces();
@@ -110,6 +118,222 @@ export class UISolvePuzzle extends Component {
         }
     }
 
+    /**
+     * 设置鼠标事件
+     */
+    private setupMouseEvents(): void {
+        if (!this.dragArea) {
+            console.error('[UISolvePuzzle] dragArea未设置，无法绑定鼠标事件');
+            return;
+        }
+        
+        // 添加鼠标按下事件
+        this.dragArea.on(Node.EventType.MOUSE_DOWN, this.onMouseDown, this);
+        // 添加鼠标移动事件
+        this.dragArea.on(Node.EventType.MOUSE_MOVE, this.onMouseMove, this);
+        // 添加鼠标松开事件
+        this.dragArea.on(Node.EventType.MOUSE_UP, this.onMouseUp, this);
+        
+        // 不再在鼠标离开时触发onMouseUp，允许鼠标移出区域继续拖动
+        
+        // 添加触摸事件（兼容移动设备）
+        this.dragArea.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
+        this.dragArea.on(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
+        this.dragArea.on(Node.EventType.TOUCH_END, this.onTouchEnd, this);
+        this.dragArea.on(Node.EventType.TOUCH_CANCEL, this.onTouchEnd, this);
+        
+        console.log('[UISolvePuzzle] 已绑定鼠标和触摸事件');
+    }
+    
+    /**
+     * 移除鼠标事件
+     */
+    private removeMouseEvents(): void {
+        if (!this.dragArea) return;
+        
+        // 移除鼠标事件
+        this.dragArea.off(Node.EventType.MOUSE_DOWN, this.onMouseDown, this);
+        this.dragArea.off(Node.EventType.MOUSE_MOVE, this.onMouseMove, this);
+        this.dragArea.off(Node.EventType.MOUSE_UP, this.onMouseUp, this);
+        // 不再需要移除MOUSE_LEAVE事件
+        
+        // 移除触摸事件
+        this.dragArea.off(Node.EventType.TOUCH_START, this.onTouchStart, this);
+        this.dragArea.off(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
+        this.dragArea.off(Node.EventType.TOUCH_END, this.onTouchEnd, this);
+        this.dragArea.off(Node.EventType.TOUCH_CANCEL, this.onTouchEnd, this);
+        
+        console.log('[UISolvePuzzle] 已移除鼠标和触摸事件');
+    }
+    
+    /**
+     * 鼠标按下事件处理
+     */
+    private onMouseDown(event: EventMouse): void {
+        if (!this.dragPiecePrefab || !this.dragArea) return;
+        
+        // 创建拖拽预制体
+        this.createDragPiece(event.getUILocation().x, event.getUILocation().y);
+    }
+    
+    /**
+     * 鼠标移动事件处理
+     */
+    private onMouseMove(event: EventMouse): void {
+        if (!this.currentDragPiece) return;
+        
+        // 更新拖拽预制体位置
+        this.updateDragPiecePosition(event.getUILocation().x, event.getUILocation().y);
+    }
+    
+    /**
+     * 鼠标松开事件处理
+     */
+    private onMouseUp(event: EventMouse): void {
+        // 删除拖拽预制体
+        this.destroyDragPiece();
+    }
+    
+    /**
+     * 触摸开始事件处理（兼容移动设备）
+     */
+    private onTouchStart(event: EventTouch): void {
+        if (!this.dragPiecePrefab || !this.dragArea) return;
+        
+        // 创建拖拽预制体
+        this.createDragPiece(event.getUILocation().x, event.getUILocation().y);
+    }
+    
+    /**
+     * 触摸移动事件处理（兼容移动设备）
+     */
+    private onTouchMove(event: EventTouch): void {
+        if (!this.currentDragPiece) return;
+        
+        // 更新拖拽预制体位置
+        this.updateDragPiecePosition(event.getUILocation().x, event.getUILocation().y);
+    }
+    
+    /**
+     * 触摸结束事件处理（兼容移动设备）
+     */
+    private onTouchEnd(event: EventTouch): void {
+        // 删除拖拽预制体
+        this.destroyDragPiece();
+    }
+    
+    /**
+     * 创建拖拽预制体
+     */
+    private createDragPiece(x: number, y: number): void {
+        // 如果已经存在拖拽预制体，先销毁
+        this.destroyDragPiece();
+        
+        // 创建新的拖拽预制体
+        this.currentDragPiece = instantiate(this.dragPiecePrefab);
+        if (!this.currentDragPiece) {
+            console.error('[UISolvePuzzle] 无法创建拖拽预制体');
+            return;
+        }
+        
+        // 设置名称便于识别
+        this.currentDragPiece.name = 'DragPiece';
+        
+        // 设置拖拽预制体尺寸
+        const pieceSize = this.dragSideLength / Math.max(this.gridRows, this.gridCols);
+        const uiTransform = this.currentDragPiece.getComponent(UITransform);
+        if (uiTransform) {
+            uiTransform.setContentSize(pieceSize, pieceSize);
+        }
+        
+        // 设置拖拽预制体图片（与puzzlePieces[0]相同）
+        const sprite = this.currentDragPiece.getComponent(Sprite);
+        const resourceManager = PuzzleResourceManager.instance;
+        
+        if (sprite && resourceManager && this.puzzlePieces.length > 0) {
+            // 获取第一个拼图切片的索引
+            const firstPieceIndex = this.puzzlePieces[0].pieceIndex;
+            
+            // 获取对应的图片
+            const pieceSpriteFrame = resourceManager.getPuzzlePiece(
+                this.currentPuzzleId, 
+                this.gridRows, 
+                this.gridCols, 
+                firstPieceIndex
+            );
+            
+            if (pieceSpriteFrame) {
+                sprite.spriteFrame = pieceSpriteFrame;
+            } else {
+                console.warn('[UISolvePuzzle] 无法获取拖拽预制体的图片');
+            }
+        }
+        
+        // 将拖拽预制体添加到拖拽区域
+        this.dragArea.addChild(this.currentDragPiece);
+        
+        // 设置拖拽预制体位置
+        this.updateDragPiecePosition(x, y);
+        
+        console.log('[UISolvePuzzle] 创建了拖拽预制体，尺寸：' + pieceSize);
+    }
+    
+    /**
+     * 更新拖拽预制体位置
+     */
+    private updateDragPiecePosition(x: number, y: number): void {
+        if (!this.currentDragPiece || !this.dragArea) return;
+        
+        // 将屏幕坐标转换为节点本地坐标
+        const worldPos = new Vec3(x, y, 0);
+        const localPos = new Vec3();
+        const dragAreaTransform = this.dragArea.getComponent(UITransform);
+        dragAreaTransform.convertToNodeSpaceAR(worldPos, localPos);
+        
+        // 限制拖拽预制体在dragArea区域内
+        const dragAreaWidth = dragAreaTransform.width;
+        const dragAreaHeight = dragAreaTransform.height;
+        const pieceTransform = this.currentDragPiece.getComponent(UITransform);
+        const pieceWidth = pieceTransform ? pieceTransform.width : 0;
+        const pieceHeight = pieceTransform ? pieceTransform.height : 0;
+        
+        // 计算边界限制
+        const halfWidth = dragAreaWidth / 2;
+        const halfHeight = dragAreaHeight / 2;
+        const halfPieceWidth = pieceWidth / 2;
+        const halfPieceHeight = pieceHeight / 2;
+        
+        // 限制X坐标在区域内
+        if (localPos.x < -halfWidth + halfPieceWidth) {
+            localPos.x = -halfWidth + halfPieceWidth;
+        } else if (localPos.x > halfWidth - halfPieceWidth) {
+            localPos.x = halfWidth - halfPieceWidth;
+        }
+        
+        // 限制Y坐标在区域内
+        if (localPos.y < -halfHeight + halfPieceHeight) {
+            localPos.y = -halfHeight + halfPieceHeight;
+        } else if (localPos.y > halfHeight - halfPieceHeight) {
+            localPos.y = halfHeight - halfPieceHeight;
+        }
+        
+        // 设置拖拽预制体位置
+        this.currentDragPiece.setPosition(localPos);
+    }
+    
+    /**
+     * 销毁拖拽预制体
+     */
+    private destroyDragPiece(): void {
+        if (!this.currentDragPiece) return;
+        
+        // 销毁拖拽预制体
+        this.currentDragPiece.destroy();
+        this.currentDragPiece = null;
+        
+        console.log('[UISolvePuzzle] 销毁了拖拽预制体');
+    }
+    
     /**
      * 界面显示时调用
      */
