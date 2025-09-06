@@ -137,63 +137,130 @@ export class UIFinishPuzzle extends Component {
      * 在微信环境中保存图片
      */
     private saveImageInWechat(): void {
+        console.log('开始保存图片到微信相册');
+        
+        // 首先检查相册权限
+        wx.getSetting({
+            success: (res) => {
+                if (!res.authSetting['scope.writePhotosAlbum']) {
+                    // 未授权，请求权限
+                    wx.authorize({
+                        scope: 'scope.writePhotosAlbum',
+                        success: () => {
+                            // 授权成功，开始保存图片
+                            this.downloadAndSaveCurrentPuzzleImage();
+                        },
+                        fail: () => {
+                            // 授权失败，引导用户去设置页面开启
+                            wx.showModal({
+                                title: '提示',
+                                content: '需要您授权保存图片到相册功能',
+                                success: (modalRes) => {
+                                    if (modalRes.confirm) {
+                                        wx.openSetting({});
+                                    }
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    // 已授权，直接保存图片
+                    this.downloadAndSaveCurrentPuzzleImage();
+                }
+            },
+            fail: (error) => {
+                console.error('获取设置失败:', error);
+                this.showMessage('获取权限设置失败');
+            }
+        });
+    }
+
+    /**
+     * 下载并保存当前拼图图片
+     */
+    private downloadAndSaveCurrentPuzzleImage(): void {
         try {
-            // 首先需要将Canvas内容转换为临时文件
-            const canvas = document.querySelector('canvas');
-            if (!canvas) {
-                console.error('找不到Canvas元素');
-                this.showMessage('保存失败：找不到画布');
+            const gameData = GameDataPuzzle.instance;
+            if (!gameData) {
+                this.showMessage('获取拼图数据失败');
                 return;
             }
 
-            // 将Canvas转换为DataURL
-            const dataURL = canvas.toDataURL('image/png');
-            
-            // 将DataURL转换为ArrayBuffer
-            const base64Data = dataURL.split(',')[1];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
+            const spriteFrame = gameData.getPuzzleSpriteFrame(this.currentPuzzleId);
+            if (!spriteFrame || !spriteFrame.texture) {
+                this.showMessage('获取拼图图片失败');
+                return;
             }
 
-            // 写入临时文件
-            const fs = wx.getFileSystemManager();
-            const tempFilePath = wx.env.USER_DATA_PATH + '/puzzle_' + Date.now() + '.png';
-            
-            fs.writeFile({
-                filePath: tempFilePath,
-                data: bytes.buffer,
-                encoding: 'binary',
-                success: () => {
-                    // 保存到相册
-                    wx.saveImageToPhotosAlbum({
-                        filePath: tempFilePath,
-                        success: () => {
-                            console.log('图片保存到相册成功');
-                            this.showMessage('图片已保存到相册');
-                        },
-                        fail: (error) => {
-                            console.error('保存到相册失败:', error);
-                            if (error.errMsg.includes('auth deny')) {
-                                this.showMessage('请授权访问相册后重试');
-                            } else {
-                                this.showMessage('保存失败，请重试');
-                            }
-                        }
-                    });
-                },
-                fail: (error) => {
-                    console.error('写入临时文件失败:', error);
-                    this.showMessage('保存失败，请重试');
-                }
-            });
+            // 对于Cocos Creator的纹理，直接使用Canvas截图方案
+            // 因为Cocos Creator的texture对象没有直接的image.src属性
+            this.saveImageWithCanvas();
         } catch (error) {
-            console.error('保存图片过程中发生错误:', error);
+            console.error('处理拼图图片失败:', error);
             this.showMessage('保存失败，请重试');
         }
     }
+
+
+
+    /**
+     * 使用Canvas截图保存本地图片
+     */
+    private saveImageWithCanvas(): void {
+        try {
+            // 创建一个临时Canvas来绘制拼图图片
+            const canvas = wx.createCanvas();
+            const ctx = canvas.getContext('2d', {}) as any;
+            
+            const gameData = GameDataPuzzle.instance;
+            const spriteFrame = gameData.getPuzzleSpriteFrame(this.currentPuzzleId);
+            
+            if (!spriteFrame || !spriteFrame.texture) {
+                this.showMessage('获取拼图图片失败');
+                return;
+            }
+
+            const texture = spriteFrame.texture;
+            canvas.width = texture.width;
+            canvas.height = texture.height;
+
+            // 由于Cocos Creator的纹理系统与微信小游戏Canvas不兼容
+            // 这里改用一个简化的方案：直接提示用户或使用其他方式
+            console.warn('Cocos Creator纹理无法直接绘制到微信Canvas');
+            this.showMessage('当前版本暂不支持本地图片保存，请联系开发者');
+            
+            // 备选方案：如果有网络图片URL，可以尝试下载
+            // 这里可以根据实际需求添加获取网络图片URL的逻辑
+        } catch (error) {
+            console.error('Canvas截图过程中发生错误:', error);
+            this.showMessage('保存失败，请重试');
+        }
+    }
+
+    /**
+     * 保存图片到相册
+     */
+    private saveToPhotosAlbum(filePath: string): void {
+        wx.saveImageToPhotosAlbum({
+            filePath: filePath,
+            success: () => {
+                console.log('图片保存到相册成功');
+                this.showMessage('图片已保存到相册');
+            },
+            fail: (error) => {
+                console.error('保存到相册失败:', error);
+                if (error.errMsg && error.errMsg.includes('auth deny')) {
+                    this.showMessage('请授权访问相册后重试');
+                } else if (error.errMsg && error.errMsg.includes('invalid file type')) {
+                    this.showMessage('图片格式不支持，保存失败');
+                } else {
+                    this.showMessage('保存失败，请重试');
+                }
+            }
+        });
+    }
+
+
 
     /**
      * 分享到微信好友
