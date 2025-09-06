@@ -26,6 +26,9 @@ export class UIFinishPuzzle extends Component {
     start() {
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
         
+        // 初始时隐藏分享和保存按钮
+        this.hideActionButtons();
+        
         // 绑定按钮事件
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnSave?.node.on(Button.EventType.CLICK, this.onSaveButtonClick, this);
@@ -60,8 +63,8 @@ export class UIFinishPuzzle extends Component {
         console.log('[UIFinishPuzzle] 点击保存拼图图片按钮');
         console.log('[UIFinishPuzzle] 当前拼图ID:', this.currentPuzzleId);
         
-        // 在微信小游戏环境中保存图片到相册
-        this.savePuzzleImageToAlbum();
+        // 先向用户说明权限用途，然后申请权限并保存
+        this.requestSavePermissionAndSave();
     }
 
     /**
@@ -84,6 +87,11 @@ export class UIFinishPuzzle extends Component {
             this.currentPuzzleId = gameData.getSelectedPuzzleId();
             this.setupCompletedPuzzleImage();
         }
+        
+        // 如果首次加载时图片设置失败，延迟重试
+        this.scheduleOnce(() => {
+            this.retrySetupIfNeeded();
+        }, 0.1);
     }
 
     /**
@@ -98,6 +106,30 @@ export class UIFinishPuzzle extends Component {
             
             if (spriteFrame) {
                 sprite.spriteFrame = spriteFrame;
+                // 设置完成拼图图片后，显示分享和保存按钮
+                this.showActionButtons();
+                console.log('[UIFinishPuzzle] 成功设置拼图图片并显示按钮');
+            } else {
+                console.warn('[UIFinishPuzzle] 无法获取拼图图片，puzzleId:', this.currentPuzzleId);
+            }
+        } else {
+            console.warn('[UIFinishPuzzle] sprite或gameData为空');
+        }
+    }
+    
+    /**
+     * 重试设置图片（用于处理首次加载时的时序问题）
+     */
+    private retrySetupIfNeeded(): void {
+        // 检查按钮是否已经显示，如果没有则重试
+        if (this.btnShare?.node && !this.btnShare.node.active) {
+            console.log('[UIFinishPuzzle] 按钮未显示，重试设置图片');
+            this.setupCompletedPuzzleImage();
+            
+            // 如果仍然失败，强制显示按钮
+            if (this.btnShare?.node && !this.btnShare.node.active) {
+                console.log('[UIFinishPuzzle] 重试后仍失败，强制显示按钮');
+                this.showActionButtons();
             }
         }
     }
@@ -121,25 +153,62 @@ export class UIFinishPuzzle extends Component {
     }
 
     /**
-     * 保存拼图图片到手机相册
+     * 显示操作按钮（分享和保存）
      */
-    private savePuzzleImageToAlbum(): void {
-        // 检查是否在微信小游戏环境
-        if (typeof wx !== 'undefined') {
-            this.saveImageInWechat();
-        } else {
-            console.log('当前不在微信小游戏环境，无法保存到相册');
-            this.showMessage('当前环境不支持保存到相册');
+    private showActionButtons(): void {
+        if (this.btnShare?.node) {
+            this.btnShare.node.active = true;
+        }
+        if (this.btnSave?.node) {
+            this.btnSave.node.active = true;
         }
     }
 
     /**
-     * 在微信环境中保存图片
+     * 隐藏操作按钮（分享和保存）
      */
-    private saveImageInWechat(): void {
-        console.log('开始保存图片到微信相册');
-        
-        // 首先检查相册权限
+    private hideActionButtons(): void {
+        if (this.btnShare?.node) {
+            this.btnShare.node.active = false;
+        }
+        if (this.btnSave?.node) {
+            this.btnSave.node.active = false;
+        }
+    }
+
+    /**
+     * 请求保存权限并保存图片
+     */
+    private requestSavePermissionAndSave(): void {
+        // 检查是否在微信小游戏环境
+        if (typeof wx === 'undefined') {
+            console.log('当前不在微信小游戏环境，无法保存到相册');
+            this.showMessage('当前环境不支持保存到相册');
+            return;
+        }
+
+        // 首先向用户说明权限用途
+        wx.showModal({
+            title: '保存图片',
+            content: '需要访问您的相册权限，用于保存完成的拼图图片到手机相册中，方便您随时查看和分享。',
+            confirmText: '同意',
+            cancelText: '取消',
+            success: (modalRes) => {
+                if (modalRes.confirm) {
+                    // 用户同意，开始检查和申请权限
+                    this.checkAndRequestAlbumPermission();
+                } else {
+                    // 用户取消，关闭弹窗（什么都不做）
+                    console.log('用户取消保存图片');
+                }
+            }
+        });
+    }
+
+    /**
+     * 检查并申请相册权限
+     */
+    private checkAndRequestAlbumPermission(): void {
         wx.getSetting({
             success: (res) => {
                 if (!res.authSetting['scope.writePhotosAlbum']) {
@@ -153,8 +222,10 @@ export class UIFinishPuzzle extends Component {
                         fail: () => {
                             // 授权失败，引导用户去设置页面开启
                             wx.showModal({
-                                title: '提示',
-                                content: '需要您授权保存图片到相册功能',
+                                title: '权限申请',
+                                content: '保存图片需要相册权限，请在设置中开启相册权限',
+                                confirmText: '去设置',
+                                cancelText: '取消',
                                 success: (modalRes) => {
                                     if (modalRes.confirm) {
                                         wx.openSetting({});
