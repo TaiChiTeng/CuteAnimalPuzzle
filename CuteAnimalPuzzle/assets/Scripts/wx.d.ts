@@ -110,7 +110,7 @@
          brand: string;
          /** 手机型号*/
          model: string;
-         /**	设备像素比 */
+         /** 设备像素比*/
          pixelRatio: number;
          /** 屏幕宽度*/
          screenWidth: number;

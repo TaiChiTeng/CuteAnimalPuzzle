@@ -20,16 +20,16 @@
         "__id__": 2
       },
       {
-        "__id__": 289
+        "__id__": 286
       },
       {
-        "__id__": 291
+        "__id__": 288
       }
     ],
     "_active": true,
     "_components": [],
     "_prefab": {
-      "__id__": 293
+      "__id__": 290
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -60,7 +60,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 294
+      "__id__": 291
     },
     "_id": "17c41c66-869c-4c09-8775-9f3fac3cc2a5"
   },
@@ -107,7 +107,7 @@
         "__id__": 284
       },
       {
-        "__id__": 288
+        "__id__": 285
       }
     ],
     "_prefab": null,
@@ -10788,7 +10788,7 @@
     "_id": "55ILA8UIZLI48GIJPS16jR"
   },
   {
-    "__type__": "586c8DTOANE7JjjhqZuqhVS",
+    "__type__": "ff042oAzSBMsa8cKrTO5dHQ",
     "_name": "",
     "_objFlags": 0,
     "__editorExtras__": {},
@@ -10797,44 +10797,7 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "bgMusics": [
-      {
-        "__id__": 285
-      },
-      {
-        "__id__": 286
-      }
-    ],
-    "PuzzleSounds": [
-      {
-        "__id__": 287
-      }
-    ],
-    "btnAudio": {
-      "__id__": 36
-    },
-    "_id": "c7F2PNX/VKrK341Es3EHre"
-  },
-  {
-    "__type__": "PuzzleMusic",
-    "clip": {
-      "__uuid__": "60bab52f-680b-41c6-936a-2d50a2e1287c",
-      "__expectedType__": "cc.AudioClip"
-    }
-  },
-  {
-    "__type__": "PuzzleMusic",
-    "clip": {
-      "__uuid__": "7f9354ef-6859-4ca5-b3b1-dd56971e731e",
-      "__expectedType__": "cc.AudioClip"
-    }
-  },
-  {
-    "__type__": "PuzzleSound",
-    "clip": {
-      "__uuid__": "dffd0f95-90d6-421c-b3da-d674b9b28562",
-      "__expectedType__": "cc.AudioClip"
-    }
+    "_id": "19HlQNuWdHq5No1gRyX5e4"
   },
   {
     "__type__": "cc.Widget",
@@ -10878,7 +10841,7 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 290
+        "__id__": 287
       }
     ],
     "_prefab": null,
@@ -10917,7 +10880,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 289
+      "__id__": 286
     },
     "_enabled": true,
     "__prefab": null,
@@ -11039,7 +11002,7 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 292
+        "__id__": 289
       }
     ],
     "_prefab": null,
@@ -11078,7 +11041,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 291
+      "__id__": 288
     },
     "_enabled": true,
     "__prefab": null,
@@ -11095,28 +11058,28 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 295
+      "__id__": 292
     },
     "shadows": {
-      "__id__": 296
+      "__id__": 293
     },
     "_skybox": {
-      "__id__": 297
+      "__id__": 294
     },
     "fog": {
-      "__id__": 298
+      "__id__": 295
     },
     "octree": {
-      "__id__": 299
+      "__id__": 296
     },
     "skin": {
-      "__id__": 300
+      "__id__": 297
     },
     "lightProbeInfo": {
-      "__id__": 301
+      "__id__": 298
     },
     "postSettings": {
-      "__id__": 302
+      "__id__": 299
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false

@@ -2,16 +2,12 @@ import { _decorator, Component, Node, Button, Toggle, ScrollView, Prefab, instan
 import { GameDataPuzzle, PuzzleStatus, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzleResourceManager } from './PuzzleResourceManager';
-import { PuzzleAudio } from './PuzzleAudio';
 const { ccclass, property } = _decorator;
 
 @ccclass('UISelectPuzzle')
 export class UISelectPuzzle extends Component {
     @property(Button)
     public btnBack: Button = null;
-
-    @property(Button)
-    public btnAudio: Button = null;
 
     @property(Toggle)
     public toggleEasy: Toggle = null;    // 9张拼图
@@ -34,24 +30,17 @@ export class UISelectPuzzle extends Component {
     // 拼图资源管理器将自动处理资源
 
     private uiManager: UIManager = null;
-    private puzzleAudio: PuzzleAudio = null;
     private puzzleItems: Node[] = [];
 
     start() {
         console.log('[UISelectPuzzle] start方法被调用，开始初始化');
         
-        // 获取UIManager和PuzzleAudio引用
+        // 获取UIManager引用
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
-        this.puzzleAudio = this.getComponent(PuzzleAudio) || this.node.parent?.getComponent(PuzzleAudio);
         if (this.uiManager) {
             console.log('[UISelectPuzzle] UIManager组件获取成功');
         } else {
             console.error('[UISelectPuzzle] 未找到UIManager组件');
-        }
-        if (this.puzzleAudio) {
-            console.log('[UISelectPuzzle] PuzzleAudio组件获取成功');
-        } else {
-            console.error('[UISelectPuzzle] 未找到PuzzleAudio组件');
         }
         
         // 检查必要的组件和节点
@@ -69,7 +58,6 @@ export class UISelectPuzzle extends Component {
         
         // 绑定按钮事件
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
-        this.btnAudio?.node.on(Button.EventType.CLICK, this.onAudioButtonClick, this);
         
         // 绑定难度切换事件
         this.toggleEasy?.node.on(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
@@ -82,7 +70,6 @@ export class UISelectPuzzle extends Component {
     onDestroy() {
         // 移除事件监听
         this.btnBack?.node.off(Button.EventType.CLICK, this.onBackButtonClick, this);
-        this.btnAudio?.node.off(Button.EventType.CLICK, this.onAudioButtonClick, this);
         this.toggleEasy?.node.off(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
         this.toggleMedium?.node.off(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
         this.toggleHard?.node.off(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
@@ -102,18 +89,6 @@ export class UISelectPuzzle extends Component {
             this.uiManager.showMainMenuOnly();
         } else {
             console.error('[UISelectPuzzle] UIManager未初始化，无法切换界面');
-        }
-    }
-
-    /**
-     * 音频按钮点击事件
-     */
-    private onAudioButtonClick(): void {
-        console.log('[UISelectPuzzle] 点击音频按钮');
-        if (this.puzzleAudio) {
-            this.puzzleAudio.onClickAudio();
-        } else {
-            console.error('[UISelectPuzzle] PuzzleAudio组件未找到');
         }
     }
 
@@ -224,10 +199,7 @@ export class UISelectPuzzle extends Component {
     public onShow(): void {
         this.initializeDifficultyToggles();
         this.initializePuzzleList();
-        // 更新音频按钮状态
-        if (this.puzzleAudio) {
-            this.puzzleAudio.updateAudioButtonState();
-        }
+        // 声音按钮状态由UIManager统一更新
     }
 
     /**

@@ -1,7 +1,6 @@
 import { _decorator, Component, Node, Button, Sprite, SpriteFrame, sys } from 'cc';
 import { GameDataPuzzle } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
-import { PuzzleResourceManager } from './PuzzleResourceManager';
 const { ccclass, property } = _decorator;
 
 @ccclass('UIFinishPuzzle')
@@ -22,6 +21,7 @@ export class UIFinishPuzzle extends Component {
 
     private uiManager: UIManager = null;
     private currentPuzzleId: number = 1;
+    private spriteFrameFilePath: string = null;
 
     start() {
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
@@ -74,7 +74,7 @@ export class UIFinishPuzzle extends Component {
         console.log('[UIFinishPuzzle] 点击分享到微信好友按钮');
         console.log('[UIFinishPuzzle] 当前拼图ID:', this.currentPuzzleId);
         
-        // 分享到微信好友（设计文档中提到已实现）
+        // 分享到微信好友
         this.shareToWechatFriends();
     }
 
@@ -106,6 +106,7 @@ export class UIFinishPuzzle extends Component {
             
             if (spriteFrame) {
                 sprite.spriteFrame = spriteFrame;
+                this.spriteFrameFilePath = this.getCurrentPuzzleImagePath();
                 // 设置完成拼图图片后，显示分享和保存按钮
                 this.showActionButtons();
                 console.log('[UIFinishPuzzle] 成功设置拼图图片并显示按钮');
@@ -135,21 +136,49 @@ export class UIFinishPuzzle extends Component {
     }
 
     /**
-     * 根据拼图ID获取对应的图片索引
+     * 获取当前拼图图片的文件路径
+     * @returns {string} 返回当前拼图SpriteFrame的资源路径
      */
-    private getPuzzleIndexById(puzzleId: string): number {
-        // 这里应该根据实际的拼图ID映射规则来实现
-        // 暂时使用简单的映射逻辑
-        const puzzleIds = [
-            'puzzle_cat_01',
-            'puzzle_dog_01', 
-            'puzzle_rabbit_01',
-            'puzzle_panda_01',
-            'puzzle_fox_01',
-            'puzzle_bear_01'
-        ];
-        
-        return puzzleIds.indexOf(puzzleId);
+    public getCurrentPuzzleImagePath(): string {
+        try {
+            const gameData = GameDataPuzzle.instance;
+            if (!gameData) {
+                console.error('[UIFinishPuzzle] GameDataPuzzle实例不存在');
+                return '';
+            }
+
+            const spriteFrame = gameData.getPuzzleSpriteFrame(this.currentPuzzleId);
+            if (!spriteFrame) {
+                console.error('[UIFinishPuzzle] 无法获取拼图SpriteFrame，puzzleId:', this.currentPuzzleId);
+                return '';
+            }
+
+            // 获取SpriteFrame的资源路径
+            const texture = spriteFrame.texture;
+            if (texture && texture.nativeUrl) {
+                console.log('[UIFinishPuzzle] 获取到拼图图片路径:', texture.nativeUrl);
+                return texture.nativeUrl;
+            } else if (texture && texture._nativeAsset) {
+                // 尝试获取原生资源路径
+                const nativeUrl = texture._nativeAsset.nativeUrl || texture._nativeAsset.url;
+                if (nativeUrl) {
+                    console.log('[UIFinishPuzzle] 获取到拼图图片原生路径:', nativeUrl);
+                    return nativeUrl;
+                }
+            }
+
+            // 如果无法获取直接路径，返回资源UUID
+            if (spriteFrame._uuid) {
+                console.log('[UIFinishPuzzle] 返回拼图图片UUID:', spriteFrame._uuid);
+                return spriteFrame._uuid;
+            }
+
+            console.warn('[UIFinishPuzzle] 无法获取拼图图片路径');
+            return '';
+        } catch (error) {
+            console.error('[UIFinishPuzzle] 获取拼图图片路径时发生错误:', error);
+            return '';
+        }
     }
 
     /**
@@ -216,8 +245,8 @@ export class UIFinishPuzzle extends Component {
                     wx.authorize({
                         scope: 'scope.writePhotosAlbum',
                         success: () => {
-                            // 授权成功，开始保存图片
-                            this.downloadAndSaveCurrentPuzzleImage();
+                            // 授权成功，开始保存图片到用户手机系统相册
+                            this.saveToPhotosAlbum(this.spriteFrameFilePath);
                         },
                         fail: () => {
                             // 授权失败，引导用户去设置页面开启
@@ -235,8 +264,8 @@ export class UIFinishPuzzle extends Component {
                         }
                     });
                 } else {
-                    // 已授权，直接保存图片
-                    this.downloadAndSaveCurrentPuzzleImage();
+                    // 已授权，直接保存图片到用户手机系统相册
+                    this.saveToPhotosAlbum(this.spriteFrameFilePath);
                 }
             },
             fail: (error) => {
@@ -244,68 +273,6 @@ export class UIFinishPuzzle extends Component {
                 this.showMessage('获取权限设置失败');
             }
         });
-    }
-
-    /**
-     * 下载并保存当前拼图图片
-     */
-    private downloadAndSaveCurrentPuzzleImage(): void {
-        try {
-            const gameData = GameDataPuzzle.instance;
-            if (!gameData) {
-                this.showMessage('获取拼图数据失败');
-                return;
-            }
-
-            const spriteFrame = gameData.getPuzzleSpriteFrame(this.currentPuzzleId);
-            if (!spriteFrame || !spriteFrame.texture) {
-                this.showMessage('获取拼图图片失败');
-                return;
-            }
-
-            // 对于Cocos Creator的纹理，直接使用Canvas截图方案
-            // 因为Cocos Creator的texture对象没有直接的image.src属性
-            this.saveImageWithCanvas();
-        } catch (error) {
-            console.error('处理拼图图片失败:', error);
-            this.showMessage('保存失败，请重试');
-        }
-    }
-
-
-
-    /**
-     * 使用Canvas截图保存本地图片
-     */
-    private saveImageWithCanvas(): void {
-        try {
-            // 创建一个临时Canvas来绘制拼图图片
-            const canvas = wx.createCanvas();
-            const ctx = canvas.getContext('2d', {}) as any;
-            
-            const gameData = GameDataPuzzle.instance;
-            const spriteFrame = gameData.getPuzzleSpriteFrame(this.currentPuzzleId);
-            
-            if (!spriteFrame || !spriteFrame.texture) {
-                this.showMessage('获取拼图图片失败');
-                return;
-            }
-
-            const texture = spriteFrame.texture;
-            canvas.width = texture.width;
-            canvas.height = texture.height;
-
-            // 由于Cocos Creator的纹理系统与微信小游戏Canvas不兼容
-            // 这里改用一个简化的方案：直接提示用户或使用其他方式
-            console.warn('Cocos Creator纹理无法直接绘制到微信Canvas');
-            this.showMessage('当前版本暂不支持本地图片保存，请联系开发者');
-            
-            // 备选方案：如果有网络图片URL，可以尝试下载
-            // 这里可以根据实际需求添加获取网络图片URL的逻辑
-        } catch (error) {
-            console.error('Canvas截图过程中发生错误:', error);
-            this.showMessage('保存失败，请重试');
-        }
     }
 
     /**
@@ -344,7 +311,7 @@ export class UIFinishPuzzle extends Component {
                 imageUrl: '' // 这里可以设置分享图片
             });
             console.log('已触发分享');
-            this.showMessage('分享面板已打开');
+            // this.showMessage('分享面板已打开');
         } else {
             console.log('当前不在微信小游戏环境，无法分享');
             this.showMessage('当前环境不支持分享功能');

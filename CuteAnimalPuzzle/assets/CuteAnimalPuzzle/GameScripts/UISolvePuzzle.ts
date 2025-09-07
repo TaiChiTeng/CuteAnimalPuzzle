@@ -3,7 +3,6 @@ import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzlePiece } from './PuzzlePiece';
 import { PuzzleResourceManager } from './PuzzleResourceManager';
-import { PuzzleAudio } from './PuzzleAudio';
 const { ccclass, property } = _decorator;
 
 @ccclass('UISolvePuzzle')
@@ -13,9 +12,6 @@ export class UISolvePuzzle extends Component {
 
     @property(Button)
     public btnHint: Button = null;
-
-    @property(Button)
-    public btnAudio: Button = null;
 
     @property(Node)
     public hintImage: Node = null;  // 拼图提示图片
@@ -57,7 +53,6 @@ export class UISolvePuzzle extends Component {
 
     // 拼图资源管理器将自动处理资源
     private uiManager: UIManager = null;
-    private puzzleAudio: PuzzleAudio = null;
     private puzzlePieces: PuzzlePiece[] = [];
     private gridSlots: Node[] = [];  // 网格槽位
     private gridAnswerSlots: Node[] = [];  // 答案槽位
@@ -84,12 +79,10 @@ export class UISolvePuzzle extends Component {
 
     start() {
         this.uiManager = this.getComponent(UIManager) || this.node.parent?.getComponent(UIManager);
-        this.puzzleAudio = PuzzleAudio.getInstance();
         
         // 绑定按钮事件
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.on(Button.EventType.CLICK, this.onHintButtonClick, this);
-        this.btnAudio?.node.on(Button.EventType.CLICK, this.onAudioButtonClick, this);
         
         // 不再在dragArea上绑定鼠标事件，改为在拼图切片上绑定
     }
@@ -98,7 +91,6 @@ export class UISolvePuzzle extends Component {
         // 移除事件监听
         this.btnBack?.node.off(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.off(Button.EventType.CLICK, this.onHintButtonClick, this);
-        this.btnAudio?.node.off(Button.EventType.CLICK, this.onAudioButtonClick, this);
         
         // 移除拼图切片的鼠标事件
         this.removePieceMouseEvents();
@@ -206,15 +198,6 @@ export class UISolvePuzzle extends Component {
             console.log('[UISolvePuzzle] 提示图片状态:', newState ? '显示' : '隐藏');
         } else {
             console.error('[UISolvePuzzle] 提示图片节点未找到');
-        }
-    }
-
-    /**
-     * 音频按钮点击事件
-     */
-    private onAudioButtonClick(): void {
-        if (this.puzzleAudio) {
-            this.puzzleAudio.onClickAudio();
         }
     }
 
@@ -1254,11 +1237,7 @@ export class UISolvePuzzle extends Component {
             
             this.initializePuzzle();
         }
-        
-        // 更新音频按钮状态
-        if (this.puzzleAudio && this.btnAudio) {
-            this.puzzleAudio.updateAudioButtonState(this.btnAudio);
-        }
+        // 声音按钮状态由UIManager统一更新
     }
 
     /**
