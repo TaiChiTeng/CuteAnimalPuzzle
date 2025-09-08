@@ -726,10 +726,14 @@ export class UISolvePuzzle extends Component {
         }
         
         // 设置拖拽预制体的图片（复制dragPieceNode的图片）
-        const dragPieceSprite = dragPieceNode.getComponent(Sprite);
-        const currentDragSprite = this.currentDragPiece.getComponent(Sprite);
-        if (dragPieceSprite && currentDragSprite && dragPieceSprite.spriteFrame) {
-            currentDragSprite.spriteFrame = dragPieceSprite.spriteFrame;
+        const dragPieceSprIconNode = dragPieceNode.getChildByName('sprIcon');
+        const currentDragSprIconNode = this.currentDragPiece.getChildByName('sprIcon');
+        if (dragPieceSprIconNode && currentDragSprIconNode) {
+            const dragPieceSprite = dragPieceSprIconNode.getComponent(Sprite);
+            const currentDragSprite = currentDragSprIconNode.getComponent(Sprite);
+            if (dragPieceSprite && currentDragSprite && dragPieceSprite.spriteFrame) {
+                currentDragSprite.spriteFrame = dragPieceSprite.spriteFrame;
+            }
         }
         
         // 将拖拽预制体添加到dragArea
@@ -794,25 +798,28 @@ export class UISolvePuzzle extends Component {
         }
         
         // 设置拖拽预制体图片（与被拖拽的拼图切片相同）
-        const sprite = this.currentDragPiece.getComponent(Sprite);
+        const sprIconNode = this.currentDragPiece.getChildByName('sprIcon');
         const resourceManager = PuzzleResourceManager.instance;
         
-        if (sprite && resourceManager && puzzlePiece) {
-            // 获取被拖拽拼图切片的索引
-            const pieceIndex = puzzlePiece.pieceIndex;
-            
-            // 获取对应的图片
-            const pieceSpriteFrame = resourceManager.getPuzzlePiece(
-                this.currentPuzzleId, 
-                this.gridRows, 
-                this.gridCols, 
-                pieceIndex
-            );
-            
-            if (pieceSpriteFrame) {
-                sprite.spriteFrame = pieceSpriteFrame;
-            } else {
-                console.warn(`[UISolvePuzzle] 无法获取拖拽预制体的图片，索引：${pieceIndex}`);
+        if (sprIconNode && resourceManager && puzzlePiece) {
+            const sprite = sprIconNode.getComponent(Sprite);
+            if (sprite) {
+                // 获取被拖拽拼图切片的索引
+                const pieceIndex = puzzlePiece.pieceIndex;
+                
+                // 获取对应的图片
+                const pieceSpriteFrame = resourceManager.getPuzzlePiece(
+                    this.currentPuzzleId, 
+                    this.gridRows, 
+                    this.gridCols, 
+                    pieceIndex
+                );
+                
+                if (pieceSpriteFrame) {
+                    sprite.spriteFrame = pieceSpriteFrame;
+                } else {
+                    console.warn(`[UISolvePuzzle] 无法获取拖拽预制体的图片，索引：${pieceIndex}`);
+                }
             }
         }
         
@@ -1102,20 +1109,23 @@ export class UISolvePuzzle extends Component {
         unplacedPiece.setPosition(originalPos);
         
         // 设置图片（与被拖拽的拼图切片相同）
-        const sprite = unplacedPiece.getComponent(Sprite);
+        const sprIconNode = unplacedPiece.getChildByName('sprIcon');
         const resourceManager = PuzzleResourceManager.instance;
         
-        if (sprite && resourceManager && this.currentDraggedPuzzlePiece) {
-            const pieceIndex = this.currentDraggedPuzzlePiece.pieceIndex;
-            const pieceSpriteFrame = resourceManager.getPuzzlePiece(
-                this.currentPuzzleId, 
-                this.gridRows, 
-                this.gridCols, 
-                pieceIndex
-            );
-            
-            if (pieceSpriteFrame) {
-                sprite.spriteFrame = pieceSpriteFrame;
+        if (sprIconNode && resourceManager && this.currentDraggedPuzzlePiece) {
+            const sprite = sprIconNode.getComponent(Sprite);
+            if (sprite) {
+                const pieceIndex = this.currentDraggedPuzzlePiece.pieceIndex;
+                const pieceSpriteFrame = resourceManager.getPuzzlePiece(
+                    this.currentPuzzleId, 
+                    this.gridRows, 
+                    this.gridCols, 
+                    pieceIndex
+                );
+                
+                if (pieceSpriteFrame) {
+                    sprite.spriteFrame = pieceSpriteFrame;
+                }
             }
         }
         
@@ -1478,19 +1488,22 @@ export class UISolvePuzzle extends Component {
      * 设置拼图切片图片
      */
     private setupPieceSprite(pieceNode: Node, index: number): void {
-        const sprite = pieceNode.getComponent(Sprite);
+        const sprIconNode = pieceNode.getChildByName('sprIcon');
         const resourceManager = PuzzleResourceManager.instance;
         
-        if (sprite && resourceManager) {
-            const pieceSpriteFrame = resourceManager.getPuzzlePiece(
-                this.currentPuzzleId, 
-                this.gridRows, 
-                this.gridCols, 
-                index
-            );
-            
-            if (pieceSpriteFrame) {
-                sprite.spriteFrame = pieceSpriteFrame;
+        if (sprIconNode && resourceManager) {
+            const sprite = sprIconNode.getComponent(Sprite);
+            if (sprite) {
+                const pieceSpriteFrame = resourceManager.getPuzzlePiece(
+                    this.currentPuzzleId, 
+                    this.gridRows, 
+                    this.gridCols, 
+                    index
+                );
+                
+                if (pieceSpriteFrame) {
+                    sprite.spriteFrame = pieceSpriteFrame;
+                }
             }
         }
     }
