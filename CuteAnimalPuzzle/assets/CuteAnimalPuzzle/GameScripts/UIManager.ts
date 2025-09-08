@@ -4,6 +4,7 @@ import { UISelectPuzzle } from './UISelectPuzzle';
 import { UISolvePuzzle } from './UISolvePuzzle';
 import { UIFinishPuzzle } from './UIFinishPuzzle';
 import { GameDataPuzzle } from './GameDataPuzzle';
+import { PuzzleAudio } from './PuzzleAudio';
 const { ccclass, property } = _decorator;
 
 @ccclass('UIManager')
@@ -173,13 +174,31 @@ export class UIManager extends Component {
     private onSoundButtonClick(): void {
         console.log('[UIManager] 点击声音开关按钮');
         
+        // 播放按钮点击音效（在状态改变前播放）
+        const puzzleAudio = PuzzleAudio.instance;
+        if (puzzleAudio) {
+            puzzleAudio.playButtonClickSound();
+        }
+        
         const gameData = GameDataPuzzle.instance;
         if (gameData) {
             const currentSoundState = gameData.getSoundEnabled();
+            const newSoundState = !currentSoundState;
+            
             console.log('[UIManager] 当前声音状态:', currentSoundState);
-            gameData.setSoundEnabled(!currentSoundState);
+            
+            // 更新游戏数据中的声音状态
+            gameData.setSoundEnabled(newSoundState);
+            
+            // 更新UI按钮状态
             this.updateAllSoundButtonStates();
-            console.log('[UIManager] 声音开关状态已更改为:', !currentSoundState);
+            
+            // 通知音频管理器状态变化
+            if (puzzleAudio) {
+                puzzleAudio.onSoundStateChanged(newSoundState);
+            }
+            
+            console.log('[UIManager] 声音开关状态已更改为:', newSoundState);
         } else {
             console.error('[UIManager] GameDataPuzzle实例未找到');
         }

@@ -168,15 +168,19 @@ export class GameDataPuzzle extends Component {
             this.setPuzzleStatus(puzzleId, PuzzleStatus.COMPLETED);
             console.log('[GameDataPuzzle] 拼图', puzzleId, '状态已设置为完成');
             
-            // 解锁下一个拼图
-            const nextPuzzleId = puzzleId + 1;
-            if (nextPuzzleId <= this.getTotalPuzzleCount()) {
-                if (this.getPuzzleStatus(nextPuzzleId) === PuzzleStatus.LOCKED) {
-                    this.setPuzzleStatus(nextPuzzleId, PuzzleStatus.UNLOCKED);
-                    console.log('[GameDataPuzzle] 下一个拼图', nextPuzzleId, '已解锁');
+            // 找到ID最小的锁定拼图并解锁
+            let foundLockedPuzzle = false;
+            for (let id = 1; id <= this.getTotalPuzzleCount(); id++) {
+                if (this.getPuzzleStatus(id) === PuzzleStatus.LOCKED) {
+                    this.setPuzzleStatus(id, PuzzleStatus.UNLOCKED);
+                    console.log('[GameDataPuzzle] 解锁ID最小的锁定拼图:', id);
+                    foundLockedPuzzle = true;
+                    break;
                 }
-            } else {
-                console.log('[GameDataPuzzle] 已完成所有拼图！');
+            }
+            
+            if (!foundLockedPuzzle) {
+                console.log('[GameDataPuzzle] 没有找到锁定的拼图，可能已完成所有拼图！');
             }
         } else {
             console.error('[GameDataPuzzle] 存档数据未初始化，无法完成拼图');
