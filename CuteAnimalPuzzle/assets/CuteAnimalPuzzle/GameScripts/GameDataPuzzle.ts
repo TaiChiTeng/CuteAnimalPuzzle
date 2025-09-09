@@ -36,6 +36,12 @@ export class GameDataPuzzle extends Component {
     
     @property({ type: [Enum(PuzzleStatus)], displayName: "拼图初始状态" })
     public puzzleInitialStatus: PuzzleStatus[] = [];
+    
+    @property({ type: [Number], displayName: "拼图组ID" })
+    public puzzleGroupID: number[] = [];
+    
+    @property({ type: [String], displayName: "拼图URL" })
+    public puzzleURL: string[] = [];
 
     public static get instance(): GameDataPuzzle {
         return GameDataPuzzle._instance;
@@ -215,6 +221,57 @@ export class GameDataPuzzle extends Component {
     private getInitialPuzzleStatus(puzzleId: number): PuzzleStatus {
         const index = puzzleId - 1; // 转换为数组索引
         return this.puzzleInitialStatus[index] || PuzzleStatus.LOCKED;
+    }
+    
+    /**
+     * 获取拼图的组ID
+     */
+    public getPuzzleGroupId(puzzleId: number): number {
+        const index = puzzleId - 1; // 转换为数组索引
+        return this.puzzleGroupID[index] || 0; // 默认为第0组
+    }
+    
+    /**
+     * 获取拼图的URL
+     */
+    public getPuzzleURL(puzzleId: number): string {
+        const index = puzzleId - 1; // 转换为数组索引
+        return this.puzzleURL[index] || '';
+    }
+    
+    /**
+     * 获取所有拼图组的数量
+     */
+    public getPuzzleGroupCount(): number {
+        const groupIds = new Set<number>();
+        for (let i = 1; i <= this.getTotalPuzzleCount(); i++) {
+            groupIds.add(this.getPuzzleGroupId(i));
+        }
+        return groupIds.size;
+    }
+    
+    /**
+     * 获取指定组的拼图ID列表
+     */
+    public getPuzzleIdsByGroup(groupId: number): number[] {
+        const puzzleIds: number[] = [];
+        for (let i = 1; i <= this.getTotalPuzzleCount(); i++) {
+            if (this.getPuzzleGroupId(i) === groupId) {
+                puzzleIds.push(i);
+            }
+        }
+        return puzzleIds;
+    }
+    
+    /**
+     * 获取所有组ID列表
+     */
+    public getAllGroupIds(): number[] {
+        const groupIds = new Set<number>();
+        for (let i = 1; i <= this.getTotalPuzzleCount(); i++) {
+            groupIds.add(this.getPuzzleGroupId(i));
+        }
+        return Array.from(groupIds).sort((a, b) => a - b);
     }
 
     // ========== 难度设置相关 ==========

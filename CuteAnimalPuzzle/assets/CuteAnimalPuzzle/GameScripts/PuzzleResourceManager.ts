@@ -1,5 +1,5 @@
-import { _decorator, Component, SpriteFrame, Texture2D, ImageAsset, Size, Vec2, Rect } from 'cc';
-import { GameDataPuzzle } from './GameDataPuzzle';
+import { _decorator, Component, SpriteFrame, Texture2D, ImageAsset, Size, Vec2, Rect, assetManager } from 'cc';
+import { GameDataPuzzle, PuzzleStatus } from './GameDataPuzzle';
 const { ccclass, property } = _decorator;
 
 /**
@@ -12,6 +12,12 @@ export class PuzzleResourceManager extends Component {
     
     // 拼图切片缓存 Map<puzzleId, Map<cacheKey, SpriteFrame[]>>
     private pieceCache: Map<number, Map<string, SpriteFrame[]>> = new Map();
+    
+    // 动态加载的图片缓存 Map<puzzleId, SpriteFrame>
+    private dynamicImageCache: Map<number, SpriteFrame> = new Map();
+    
+    // 正在加载的图片Promise缓存 Map<puzzleId, Promise<SpriteFrame>>
+    private loadingPromises: Map<number, Promise<SpriteFrame>> = new Map();
     
     public static get instance(): PuzzleResourceManager {
         return PuzzleResourceManager._instance;
@@ -35,7 +41,95 @@ export class PuzzleResourceManager extends Component {
      */
     public getPuzzleSpriteFrame(puzzleId: number): SpriteFrame | null {
         const gameData = GameDataPuzzle.instance;
-        return gameData ? gameData.getPuzzleSpriteFrame(puzzleId) : null;
+        if (!gameData) return null;
+        
+        // 首先尝试从配置的SpriteFrame获取
+        const configuredSpriteFrame = gameData.getPuzzleSpriteFrame(puzzleId);
+        if (configuredSpriteFrame) {
+            return configuredSpriteFrame;
+        }
+        
+        // 如果没有配置SpriteFrame，尝试从动态加载缓存获取
+        const cachedSpriteFrame = this.dynamicImageCache.get(puzzleId);
+        if (cachedSpriteFrame) {
+            return cachedSpriteFrame;
+        }
+        
+        // 如果都没有，返回null（需要异步加载）
+        return null;
+    }
+    
+    /**
+     * 异步加载拼图图片
+     */
+    public async loadPuzzleImageAsync(puzzleId: number): Promise<SpriteFrame | null> {
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) return null;
+        
+        // 首先检查是否已有配置的SpriteFrame
+        const configuredSpriteFrame = gameData.getPuzzleSpriteFrame(puzzleId);
+        if (configuredSpriteFrame) {
+            return configuredSpriteFrame;
+        }
+        
+        // 检查缓存
+        const cachedSpriteFrame = this.dynamicImageCache.get(puzzleId);
+        if (cachedSpriteFrame) {
+            return cachedSpriteFrame;
+        }
+        
+        // 检查是否正在加载
+        const loadingPromise = this.loadingPromises.get(puzzleId);
+        if (loadingPromise) {
+            return await loadingPromise;
+        }
+        
+        // 获取URL
+        const urls = gameData.getPuzzleURL(puzzleId);
+        if (!urls || urls.length === 0) {
+            return null;
+        }
+        
+        // 创建加载Promise
+        const promise = this.loadImageFromURL(puzzleId, urls[0]);
+        this.loadingPromises.set(puzzleId, promise);
+        
+        try {
+            const spriteFrame = await promise;
+            this.loadingPromises.delete(puzzleId);
+            return spriteFrame;
+        } catch (error) {
+            console.error(`Failed to load image for puzzle ${puzzleId}:`, error);
+            this.loadingPromises.delete(puzzleId);
+            return null;
+        }
+    }
+    
+    /**
+     * 从URL加载图片
+     */
+    private async loadImageFromURL(puzzleId: number, url: string): Promise<SpriteFrame> {
+        return new Promise((resolve, reject) => {
+            assetManager.loadRemote<ImageAsset>(url, { ext: '.png' }, (err, imageAsset) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                // 创建Texture2D
+                const texture = new Texture2D();
+                texture.image = imageAsset;
+                
+                // 创建SpriteFrame
+                const spriteFrame = new SpriteFrame();
+                spriteFrame.texture = texture;
+                
+                // 缓存SpriteFrame
+                this.dynamicImageCache.set(puzzleId, spriteFrame);
+                
+                resolve(spriteFrame);
+            });
+        });
     }
     
     /**
@@ -149,6 +243,15 @@ export class PuzzleResourceManager extends Component {
             // 清理所有缓存
             this.pieceCache.clear();
         }
+    }
+    
+    /**
+     * 清理缓存
+     */
+    public clearCache(): void {
+        this.pieceCache.clear();
+        this.dynamicImageCache.clear();
+        this.loadingPromises.clear();
     }
     
     /**

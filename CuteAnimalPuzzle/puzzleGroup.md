@@ -1,4 +1,8 @@
-拼图数据增加组的概念
+游戏引擎：Cocos Creator 3.8.6
+代码语言：TypeScript
+目标平台：微信小游戏
+
+拼图数据需要增加组的概念，需要支持动态下载和加载图片，因为微信小游戏包大小限制，不能把所有的图片都打包到小游戏包中，需要动态下载和加载图片。
 
 UISelectPuzzle.ts
     （1）增加puzzleGroupScrollView
@@ -20,6 +24,8 @@ UISelectPuzzle.ts
         如果只有1个组，就隐藏puzzleGroupScrollView，直接显示puzzleScrollView；
     （5）initializePuzzleList()要增加传入参数，itemPuzzleGroupPrefab的索引，默认用0
         每次初始化puzzleScrollView时，要根据itemPuzzleGroupPrefab的索引，初始化对应的拼图组；
+    （6）新增labelWait和Waitime=2秒，每次打开UISelectPuzzle界面，如果限定时间Waitime结束，才根据最新的加载进度，即拼图数据判断拼图数据有几个组。比如，有2个组，其中1个组的所有图片都加载失败，按拼图数据只1个组处理。
+    （7）增加难度切换按钮父节点的配置，它和puzzleGroupScrollView同时显示和隐藏
 
 GameDataPuzzle.ts
     （1）拼图配置数据增加puzzleGroupID

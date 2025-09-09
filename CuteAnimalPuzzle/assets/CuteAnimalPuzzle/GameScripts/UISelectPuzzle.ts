@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, Toggle, ScrollView, Prefab, instantiate, Sprite, SpriteFrame } from 'cc';
+import { _decorator, Component, Node, Button, Toggle, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, Label } from 'cc';
 import { GameDataPuzzle, PuzzleStatus, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzleResourceManager } from './PuzzleResourceManager';
@@ -13,6 +13,10 @@ export class UISelectPuzzle extends Component {
     // 如果puzzleGroupScrollView正在显示，则返回UIMainMenu
     @property(Button)
     public btnBack: Button = null;
+
+    // 难度切换按钮的父节点，与puzzleGroupScrollView同时显示和隐藏
+    @property(Node)
+    public difficultyToggleParent: Node = null;
 
     @property(Toggle)
     public toggleEasy: Toggle = null;    // 9张拼图
@@ -48,10 +52,18 @@ export class UISelectPuzzle extends Component {
     @property(Prefab)
     public itemPuzzleGroupPrefab: Prefab = null;
 
+    // 等待标签，显示加载进度信息
+    @property(Label)
+    public labelWait: Label = null;
+
     // 拼图资源管理器将自动处理资源
 
     private uiManager: UIManager = null;
     private puzzleItems: Node[] = [];
+    private puzzleGroupItems: Node[] = [];
+    private currentGroupIndex: number = 0; // 当前选择的拼图组索引
+    private readonly WAIT_TIME: number = 2; // 等待时间（秒）
+    private isWaiting: boolean = false; // 是否正在等待
 
     start() {
         console.log('[UISelectPuzzle] start方法被调用，开始初始化');
@@ -95,18 +107,36 @@ export class UISelectPuzzle extends Component {
         this.toggleMedium?.node.off(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
         this.toggleHard?.node.off(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
         
-        // 清理拼图项事件
+        // 清理定时器
+        this.unscheduleAllCallbacks();
+        
+        // 清理拼图项和拼图组项事件
         this.clearPuzzleItems();
+        this.clearPuzzleGroupItems();
     }
 
     /**
      * 返回按钮点击事件
      */
     private onBackButtonClick(): void {
-        console.log('[UISelectPuzzle] 点击返回主菜单按钮');
+        console.log('[UISelectPuzzle] 点击返回按钮');
         
+        // 判断当前显示的是哪个界面
+        if (this.puzzleScrollView && this.puzzleScrollView.node.active) {
+            // 当前显示拼图列表，返回到拼图组选择
+            const gameData = GameDataPuzzle.instance;
+            if (gameData && gameData.getPuzzleGroupCount() > 1) {
+                console.log('[UISelectPuzzle] 从拼图列表返回到拼图组选择');
+                this.showPuzzleGroupView().catch(err => {
+                    console.error('[UISelectPuzzle] 显示拼图组视图失败:', err);
+                });
+                return; // 返回到拼图组选择，不继续执行返回主菜单
+            }
+        }
+        
+        // 如果puzzleGroupScrollView正在显示，或者只有一个拼图组，则返回主菜单
+        console.log('[UISelectPuzzle] 返回主菜单');
         if (this.uiManager) {
-            console.log('[UISelectPuzzle] 准备切换到主菜单界面');
             this.uiManager.showMainMenuOnly();
         } else {
             console.error('[UISelectPuzzle] UIManager未初始化，无法切换界面');
@@ -219,8 +249,121 @@ export class UISelectPuzzle extends Component {
      */
     public onShow(): void {
         this.initializeDifficultyToggles();
-        this.initializePuzzleList();
+        
+        // 开始等待流程
+        this.startWaitingProcess();
+        
         // 声音按钮状态由UIManager统一更新
+    }
+
+    /**
+     * 开始等待流程
+     */
+    private startWaitingProcess(): void {
+        console.log('[UISelectPuzzle] 开始等待流程');
+        
+        this.isWaiting = true;
+        
+        // 显示等待标签
+        if (this.labelWait) {
+            this.labelWait.node.active = true;
+            this.labelWait.string = '加载拼图中...';
+        }
+        
+        // 隐藏滚动视图和难度切换按钮
+        if (this.puzzleScrollView) {
+            this.puzzleScrollView.node.active = false;
+        }
+        if (this.puzzleGroupScrollView) {
+            this.puzzleGroupScrollView.node.active = false;
+        }
+        if (this.difficultyToggleParent) {
+            this.difficultyToggleParent.active = false;
+        }
+        
+        // 等待指定时间后检查加载进度
+        this.scheduleOnce(() => {
+            this.checkLoadingProgressAndShow();
+        }, this.WAIT_TIME);
+    }
+
+    /**
+     * 检查加载进度并显示相应界面
+     */
+    private checkLoadingProgressAndShow(): void {
+        console.log('[UISelectPuzzle] 等待时间结束，检查加载进度');
+        
+        this.isWaiting = false;
+        
+        // 隐藏等待标签
+        if (this.labelWait) {
+            this.labelWait.node.active = false;
+        }
+        
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) {
+            console.error('[UISelectPuzzle] GameDataPuzzle实例未找到');
+            return;
+        }
+        
+        // 获取实际可用的拼图组数量（排除所有图片都加载失败的组）
+        const availableGroupCount = this.getAvailableGroupCount();
+        console.log(`[UISelectPuzzle] 实际可用拼图组数量: ${availableGroupCount}`);
+        
+        if (availableGroupCount > 1) {
+            // 多个组，显示拼图组选择界面
+            this.showPuzzleGroupView().catch(err => {
+                console.error('[UISelectPuzzle] 显示拼图组视图失败:', err);
+            });
+        } else {
+            // 只有一个组或没有组，直接显示拼图列表
+            this.showPuzzleListView(0).catch(err => {
+                console.error('[UISelectPuzzle] 显示拼图列表视图失败:', err);
+            });
+        }
+        
+        // 显示难度切换按钮
+        if (this.difficultyToggleParent) {
+            this.difficultyToggleParent.active = true;
+        }
+    }
+
+    /**
+     * 获取实际可用的拼图组数量
+     * 排除所有图片都加载失败的组
+     */
+    private getAvailableGroupCount(): number {
+        const gameData = GameDataPuzzle.instance;
+        const resourceManager = PuzzleResourceManager.instance;
+        
+        if (!gameData || !resourceManager) {
+            return 0;
+        }
+        
+        const allGroupIds = gameData.getAllGroupIds();
+        let availableGroupCount = 0;
+        
+        for (const groupId of allGroupIds) {
+            const puzzleIds = gameData.getPuzzleIdsByGroup(groupId);
+            let hasAvailableImage = false;
+            
+            // 检查该组是否有至少一张可用的图片
+            for (const puzzleId of puzzleIds) {
+                const spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
+                if (spriteFrame) {
+                    hasAvailableImage = true;
+                    break;
+                }
+            }
+            
+            if (hasAvailableImage) {
+                availableGroupCount++;
+            } else {
+                console.log(`[UISelectPuzzle] 拼图组 ${groupId} 的所有图片都加载失败，跳过该组`);
+            }
+        }
+        
+        return availableGroupCount;
     }
 
     /**
@@ -248,7 +391,7 @@ export class UISelectPuzzle extends Component {
     /**
      * 初始化拼图列表
      */
-    private initializePuzzleList(): void {
+    private async initializePuzzleList(groupIndex: number = 0): Promise<void> {
         console.log('[UISelectPuzzle] 开始初始化拼图列表');
         
         const gameData = GameDataPuzzle.instance;
@@ -278,10 +421,15 @@ export class UISelectPuzzle extends Component {
         this.clearPuzzleItems();
         console.log('[UISelectPuzzle] 已清理现有拼图项');
         
-        // 获取可显示的拼图ID列表
-        const availablePuzzleIds = resourceManager.getAvailablePuzzleIds();
-        console.log('[UISelectPuzzle] 可用拼图ID列表:', availablePuzzleIds);
-        console.log('[UISelectPuzzle] 拼图总数:', availablePuzzleIds.length);
+        // 根据组索引获取对应组的拼图ID列表
+        const allGroupIds = gameData.getAllGroupIds();
+        const targetGroupId = allGroupIds[groupIndex] || 0;
+        const availablePuzzleIds = gameData.getPuzzleIdsByGroup(targetGroupId);
+        console.log(`[UISelectPuzzle] 组索引: ${groupIndex}, 组ID: ${targetGroupId}`);
+        console.log('[UISelectPuzzle] 该组可用拼图ID列表:', availablePuzzleIds);
+        console.log('[UISelectPuzzle] 该组拼图总数:', availablePuzzleIds.length);
+        
+        this.currentGroupIndex = groupIndex;
         
         // 过滤掉UNAVAILABLE状态的拼图
         const displayablePuzzleIds = availablePuzzleIds.filter(puzzleId => {
@@ -309,8 +457,8 @@ export class UISelectPuzzle extends Component {
                 const resourceName = spriteFrame ? spriteFrame.name : '未找到资源';
                 console.log(`[UISelectPuzzle] 拼图ID ${puzzleId} 对应资源: ${resourceName}`);
                 
-                // 设置拼图项的显示
-                this.setupPuzzleItem(puzzleItem, puzzleId, i);
+                // 设置拼图项的显示（异步）
+                await this.setupPuzzleItem(puzzleItem, puzzleId, i);
                 
                 // 添加到内容节点
                 this.puzzleContent.addChild(puzzleItem);
@@ -329,7 +477,7 @@ export class UISelectPuzzle extends Component {
     /**
      * 设置拼图项的显示和事件
      */
-    private setupPuzzleItem(puzzleItem: Node, puzzleId: number, index: number): void {
+    private async setupPuzzleItem(puzzleItem: Node, puzzleId: number, index: number): Promise<void> {
         console.log(`[UISelectPuzzle] 开始设置拼图项 ${puzzleId} (索引: ${index})`);
         
         const gameData = GameDataPuzzle.instance;
@@ -359,7 +507,18 @@ export class UISelectPuzzle extends Component {
         if (sprPuzzle) {
             const resourceManager = PuzzleResourceManager.instance;
             if (resourceManager) {
-                const spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
+                // 先尝试同步获取
+                let spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
+                
+                if (!spriteFrame) {
+                    // 如果没有同步获取到，尝试异步加载
+                    try {
+                        spriteFrame = await resourceManager.loadPuzzleImageAsync(puzzleId);
+                    } catch (error) {
+                        console.error(`[UISelectPuzzle] 异步加载拼图 ${puzzleId} 图片失败:`, error);
+                    }
+                }
+                
                 if (spriteFrame) {
                     sprPuzzle.spriteFrame = spriteFrame;
                     console.log(`[UISelectPuzzle] 拼图 ${puzzleId} 图片设置成功: ${spriteFrame.name}`);
@@ -441,6 +600,166 @@ export class UISelectPuzzle extends Component {
         console.log(`[UISelectPuzzle] 拼图项 ${puzzleId} 设置完成`);
     }
 
+    /**
+     * 显示拼图组选择视图
+     */
+    private async showPuzzleGroupView(): Promise<void> {
+        console.log('[UISelectPuzzle] 显示拼图组选择视图');
+        
+        if (this.puzzleGroupScrollView) {
+            this.puzzleGroupScrollView.node.active = true;
+        }
+        
+        if (this.puzzleScrollView) {
+            this.puzzleScrollView.node.active = false;
+        }
+        
+        // 显示难度切换按钮
+        if (this.difficultyToggleParent) {
+            this.difficultyToggleParent.active = true;
+        }
+        
+        await this.initializePuzzleGroupList();
+    }
+    
+    /**
+     * 显示拼图列表视图
+     */
+    private async showPuzzleListView(groupIndex: number): Promise<void> {
+        console.log(`[UISelectPuzzle] 显示拼图列表视图，组索引: ${groupIndex}`);
+        
+        if (this.puzzleGroupScrollView) {
+            this.puzzleGroupScrollView.node.active = false;
+        }
+        
+        if (this.puzzleScrollView) {
+            this.puzzleScrollView.node.active = true;
+        }
+        
+        // 显示难度切换按钮
+        if (this.difficultyToggleParent) {
+            this.difficultyToggleParent.active = true;
+        }
+        
+        await this.initializePuzzleList(groupIndex);
+    }
+    
+    /**
+     * 初始化拼图组列表
+     */
+    private async initializePuzzleGroupList(): Promise<void> {
+        console.log('[UISelectPuzzle] 开始初始化拼图组列表');
+        
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) {
+            console.error('[UISelectPuzzle] GameDataPuzzle实例未找到');
+            return;
+        }
+        
+        if (!this.puzzleGroupScrollView || !this.itemPuzzleGroupPrefab) {
+            console.error('[UISelectPuzzle] 拼图组相关组件未配置');
+            return;
+        }
+        
+        // 清理现有的拼图组项
+        this.clearPuzzleGroupItems();
+        
+        const allGroupIds = gameData.getAllGroupIds();
+        console.log('[UISelectPuzzle] 所有组ID:', allGroupIds);
+        
+        // 创建拼图组项
+        for (let i = 0; i < allGroupIds.length; i++) {
+            const groupId = allGroupIds[i];
+            const groupItem = instantiate(this.itemPuzzleGroupPrefab);
+            
+            if (groupItem) {
+                await this.setupPuzzleGroupItem(groupItem, i, groupId);
+                this.puzzleGroupScrollView.content.addChild(groupItem);
+                this.puzzleGroupItems.push(groupItem);
+                console.log(`[UISelectPuzzle] 拼图组项 ${i} (组ID: ${groupId}) 创建成功`);
+            }
+        }
+        
+        console.log(`[UISelectPuzzle] 拼图组列表初始化完成，共创建 ${this.puzzleGroupItems.length} 个组项`);
+    }
+    
+    /**
+     * 设置拼图组项
+     */
+    private async setupPuzzleGroupItem(groupItem: Node, groupIndex: number, groupId: number): Promise<void> {
+        console.log(`[UISelectPuzzle] 设置拼图组项 ${groupIndex} (组ID: ${groupId})`);
+        
+        const gameData = GameDataPuzzle.instance;
+        const resourceManager = PuzzleResourceManager.instance;
+        
+        if (!gameData || !resourceManager) return;
+        
+        // 获取该组的拼图ID列表
+        const puzzleIds = gameData.getPuzzleIdsByGroup(groupId);
+        
+        // 设置前3张图片
+        for (let i = 0; i < 3; i++) {
+            const showNode = groupItem.getChildByName(`itemPuzzleShow${i + 1}`);
+            if (showNode) {
+                const spriteNode = showNode.getChildByName(`sprPuzzle${i + 1}`);
+                if (spriteNode) {
+                    const sprite = spriteNode.getComponent(Sprite);
+                    if (sprite && i < puzzleIds.length) {
+                        const puzzleId = puzzleIds[i];
+                        
+                        // 先尝试同步获取
+                        let spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
+                        
+                        if (!spriteFrame) {
+                            // 如果没有同步获取到，尝试异步加载
+                            try {
+                                spriteFrame = await resourceManager.loadPuzzleImageAsync(puzzleId);
+                            } catch (error) {
+                                console.error(`[UISelectPuzzle] 异步加载拼图组预览图片 ${puzzleId} 失败:`, error);
+                            }
+                        }
+                        
+                        if (spriteFrame) {
+                            sprite.spriteFrame = spriteFrame;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 绑定点击事件
+        const button = groupItem.getComponent(Button);
+        if (button) {
+            button.node.on(Button.EventType.CLICK, () => {
+                this.onPuzzleGroupClick(groupIndex);
+            }, this);
+        }
+    }
+    
+    /**
+     * 拼图组点击事件
+     */
+    private async onPuzzleGroupClick(groupIndex: number): Promise<void> {
+        console.log(`[UISelectPuzzle] 拼图组 ${groupIndex} 被点击`);
+        await this.showPuzzleListView(groupIndex);
+    }
+    
+    /**
+     * 清理拼图组项
+     */
+    private clearPuzzleGroupItems(): void {
+        for (const item of this.puzzleGroupItems) {
+            if (item && item.isValid) {
+                const button = item.getComponent(Button);
+                if (button) {
+                    button.node.off(Button.EventType.CLICK);
+                }
+                item.destroy();
+            }
+        }
+        this.puzzleGroupItems = [];
+    }
+    
     /**
      * 清理拼图项
      */
