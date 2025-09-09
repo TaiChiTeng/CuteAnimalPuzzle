@@ -6,6 +6,11 @@ const { ccclass, property } = _decorator;
 
 @ccclass('UISelectPuzzle')
 export class UISelectPuzzle extends Component {
+
+    // 返回按钮
+    // 点击时要判断：
+    // 如果puzzleScrollView正在显示，则隐藏puzzleScrollView，显示puzzleGroupScrollView
+    // 如果puzzleGroupScrollView正在显示，则返回UIMainMenu
     @property(Button)
     public btnBack: Button = null;
 
@@ -18,14 +23,30 @@ export class UISelectPuzzle extends Component {
     @property(Toggle)
     public toggleHard: Toggle = null;    // 25张拼图
 
+    // 拼图的滚动视图，如果拼图数据只有1个组，就直接显示，直接展示所有的拼图；
+    // 如果拼图数据有多个组，则先隐藏
+    // 等玩家点击itemPuzzleGroupPrefab后，根据itemPuzzleGroupPrefab的索引，puzzleScrollView展示对应的拼图组；
     @property(ScrollView)
     public puzzleScrollView: ScrollView = null;
+
+    // 拼图组的滚动视图，如果拼图数据只有1个组，就不用展示puzzleGroupScrollView，直接显示puzzleScrollView；
+    // 如果拼图数据有多个组，就展示puzzleGroupScrollView，先隐藏puzzleScrollView；
+    // 每个拼图组的内容itemPuzzleGroupPrefab都实例化后放在puzzleGroupScrollView的content节点下；
+    // 点击itemPuzzleGroupPrefab，隐藏puzzleGroupScrollView，展示puzzleScrollView；
+    @property(ScrollView)
+    public puzzleGroupScrollView: ScrollView = null;
 
     @property(Node)
     public puzzleContent: Node = null;
 
     @property(Prefab)
     public itemSelectPuzzlePrefab: Prefab = null;
+
+    // 拼图组的内容itemPuzzleGroupPrefab，点击切换展示
+    // 隐藏puzzleGroupScrollView，根据根据itemPuzzleGroupPrefab的索引，puzzleScrollView展示对应的拼图组；
+    // itemPuzzleGroupPrefab里边有3张图片，分别展示对应拼图组的第1，2，3张图片
+    @property(Prefab)
+    public itemPuzzleGroupPrefab: Prefab = null;
 
     // 拼图资源管理器将自动处理资源
 
