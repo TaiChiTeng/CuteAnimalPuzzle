@@ -4,6 +4,17 @@
 
 拼图数据需要增加组的概念，需要支持动态下载和加载图片，因为微信小游戏包大小限制，不能把所有的图片都打包到小游戏包中，需要动态下载和加载图片。
 
+实现图片下载与管理逻辑​​
+•编写一个函数，接收图片URL，调用 wx.downloadFile进行下载。
+•将下载成功后的临时文件路径存储起来，并更新关卡数据。
+•处理好网络错误和权限提示。
+注意事项
+•​​网络问题​​：下载图片是核心环节，务必处理好弱网环境下的提示和重试机制。
+•​​资源缓存​​：考虑对已下载的图片进行缓存，避免玩家重复下载消耗流量。你可以将 wx.downloadFile下载的文件保存到更持久的小游戏文件系统 (wx.fileSystem) 中，而不是每次都重新下载。
+用户体验​​：
+•在下载较大图片时，给用户清晰的进度提示（wx.downloadFile支持监听下载进度）。
+•提前告知用户下载需要消耗流量。
+
 UISelectPuzzle.ts
     （1）增加puzzleGroupScrollView
         拼图组的滚动视图，如果拼图数据只有1个组，就不用展示puzzleGroupScrollView，直接显示puzzleScrollView；
@@ -39,3 +50,11 @@ GameDataPuzzle.ts
             @property({ type: [string], displayName: "拼图URL" })
             public puzzleURL: string[] = [];
         如果puzzleSpriteFrames没有配置，puzzleURL也没有配置或者下载失败或加载失败，则强行设置该拼图的状态是UNAVAILABLE。
+        如果有图片，则应该设置该图片的状态为
+            （3.1）检查存档，如果有存档，根据存档记录，如果是UNAVAILABLE，则设置为UNLOCKED，并且更新存档记录也为UNLOCKED；否则取存档记录的拼图状态
+            （3.2）如果没有存档，则根据puzzleInitialStatus设置拼图状态
+    （4）每次完成拼图，解锁新拼图，需要改为
+        （4.1）只解锁同组里边第一个LOCKED的拼图
+
+UIMainMenu.ts
+    （1）增加进度条LoadPuzzleBar，调整在首次打开UIManiMenu时加载拼图数据，加载时隐藏开始按钮和展示进度条，加载完成后，隐藏进度条和显示开始按钮；

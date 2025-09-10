@@ -109,27 +109,26 @@ export class PuzzleResourceManager extends Component {
      * 从URL加载图片
      */
     private async loadImageFromURL(puzzleId: number, url: string): Promise<SpriteFrame> {
-        return new Promise((resolve, reject) => {
-            assetManager.loadRemote<ImageAsset>(url, { ext: '.png' }, (err, imageAsset) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                
-                // 创建Texture2D
-                const texture = new Texture2D();
-                texture.image = imageAsset;
-                
-                // 创建SpriteFrame
-                const spriteFrame = new SpriteFrame();
-                spriteFrame.texture = texture;
-                
-                // 缓存SpriteFrame
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) {
+            throw new Error('GameDataPuzzle instance not found');
+        }
+        
+        try {
+            // 使用GameDataPuzzle的新下载和缓存功能
+            const spriteFrame = await gameData.loadImageFromURL(puzzleId, url);
+            
+            if (spriteFrame) {
+                // 缓存到PuzzleResourceManager的本地缓存
                 this.dynamicImageCache.set(puzzleId, spriteFrame);
-                
-                resolve(spriteFrame);
-            });
-        });
+                return spriteFrame;
+            } else {
+                throw new Error(`Failed to load image for puzzle ${puzzleId}`);
+            }
+        } catch (error) {
+            console.error(`[PuzzleResourceManager] 加载图片失败 puzzleId: ${puzzleId}, url: ${url}`, error);
+            throw error;
+        }
     }
     
     /**

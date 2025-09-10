@@ -62,7 +62,7 @@ export class UISelectPuzzle extends Component {
     private puzzleItems: Node[] = [];
     private puzzleGroupItems: Node[] = [];
     private currentGroupIndex: number = 0; // 当前选择的拼图组索引
-    private readonly WAIT_TIME: number = 2; // 等待时间（秒）
+    private readonly WAIT_TIME: number = 0.2; // 等待时间（秒）
     private isWaiting: boolean = false; // 是否正在等待
 
     start() {

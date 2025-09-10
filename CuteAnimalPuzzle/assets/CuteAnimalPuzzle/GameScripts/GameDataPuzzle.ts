@@ -1,5 +1,8 @@
-import { _decorator, Component, sys, SpriteFrame, Enum } from 'cc';
+import { _decorator, Component, sys, SpriteFrame, Enum, assetManager, ImageAsset, Texture2D, CCInteger, CCString } from 'cc';
 const { ccclass, property } = _decorator;
+
+// 声明微信API类型
+declare const wx: any;
 
 // 拼图状态枚举
 export enum PuzzleStatus {
@@ -29,6 +32,12 @@ export class GameDataPuzzle extends Component {
     private static _instance: GameDataPuzzle = null;
     private _saveData: SaveData = null;
     private readonly SAVE_KEY = 'CuteAnimalPuzzle_SaveData';
+
+    private readonly WAIT_TIME: number = 0.3; // 等待时间（秒）
+    private readonly CACHE_DIR = 'puzzle_cache'; // 缓存目录
+    private readonly MAX_RETRY_COUNT = 3; // 最大重试次数
+    private fileSystemManager: any = null; // 文件系统管理器
+    private downloadingUrls: Set<string> = new Set(); // 正在下载的URL集合
     
     // 拼图配置数据结构
     @property({ type: [SpriteFrame], displayName: "拼图图片列表" })
@@ -37,10 +46,10 @@ export class GameDataPuzzle extends Component {
     @property({ type: [Enum(PuzzleStatus)], displayName: "拼图初始状态" })
     public puzzleInitialStatus: PuzzleStatus[] = [];
     
-    @property({ type: [Number], displayName: "拼图组ID" })
+    @property({ type: [CCInteger], displayName: "拼图组ID" })
     public puzzleGroupID: number[] = [];
     
-    @property({ type: [String], displayName: "拼图URL" })
+    @property({ type: [CCString], displayName: "拼图URL" })
     public puzzleURL: string[] = [];
 
     public static get instance(): GameDataPuzzle {
@@ -50,6 +59,7 @@ export class GameDataPuzzle extends Component {
     onLoad() {
         if (GameDataPuzzle._instance === null) {
             GameDataPuzzle._instance = this;
+            this.initFileSystem();
             this.loadSaveData();
         } else {
             this.destroy();
@@ -59,6 +69,41 @@ export class GameDataPuzzle extends Component {
     start() {
         // 初始化默认数据
         this.initDefaultData();
+    }
+
+    /**
+     * 初始化文件系统
+     */
+    private initFileSystem(): void {
+        if (typeof wx !== 'undefined' && wx.getFileSystemManager) {
+            this.fileSystemManager = wx.getFileSystemManager();
+            console.log('[GameDataPuzzle] 微信文件系统管理器初始化成功');
+            
+            // 确保缓存目录存在
+            this.ensureCacheDirectory();
+        } else {
+            console.warn('[GameDataPuzzle] 微信API不可用，将使用默认图片加载方式');
+        }
+    }
+
+    /**
+     * 确保缓存目录存在
+     */
+    private ensureCacheDirectory(): void {
+        if (!this.fileSystemManager) return;
+        
+        const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}`;
+        try {
+            this.fileSystemManager.accessSync(cachePath);
+            console.log('[GameDataPuzzle] 缓存目录已存在');
+        } catch (error) {
+            try {
+                this.fileSystemManager.mkdirSync(cachePath, true);
+                console.log('[GameDataPuzzle] 缓存目录创建成功');
+            } catch (mkdirError) {
+                console.error('[GameDataPuzzle] 创建缓存目录失败:', mkdirError);
+            }
+        }
     }
 
     /**
@@ -165,7 +210,38 @@ export class GameDataPuzzle extends Component {
     }
 
     /**
+     * 设置图片加载成功后的拼图状态
+     * 根据需求文档：检查存档，如果是UNAVAILABLE则设置为UNLOCKED；否则使用存档状态或初始状态
+     */
+    public setPuzzleStatusAfterImageLoad(puzzleId: number): void {
+        if (!this._saveData) return;
+        
+        const currentStatus = this.getPuzzleStatus(puzzleId);
+        
+        // 如果当前状态是UNAVAILABLE，则设置为UNLOCKED并更新存档
+        if (currentStatus === PuzzleStatus.UNAVAILABLE) {
+            this.setPuzzleStatus(puzzleId, PuzzleStatus.UNLOCKED);
+            console.log(`[GameDataPuzzle] 拼图${puzzleId}从UNAVAILABLE更新为UNLOCKED`);
+        } else {
+            // 否则保持存档中的状态，如果没有存档则使用初始状态
+            const index = puzzleId - 1;
+            if (index >= 0 && index < this.puzzleInitialStatus.length) {
+                const initialStatus = this.puzzleInitialStatus[index];
+                // 如果存档中没有该拼图的记录，使用初始状态
+                const key = puzzleId.toString();
+                if (!(key in this._saveData.puzzleStatus)) {
+                    this.setPuzzleStatus(puzzleId, initialStatus);
+                    console.log(`[GameDataPuzzle] 拼图${puzzleId}设置为初始状态: ${PuzzleStatus[initialStatus]}`);
+                } else {
+                    console.log(`[GameDataPuzzle] 拼图${puzzleId}保持存档状态: ${PuzzleStatus[currentStatus]}`);
+                }
+            }
+        }
+    }
+
+    /**
      * 完成拼图，解锁下一个拼图
+     * 根据需求文档：只解锁同组里边第一个LOCKED的拼图
      */
     public completePuzzle(puzzleId: number): void {
         console.log('[GameDataPuzzle] 完成拼图:', puzzleId);
@@ -174,19 +250,25 @@ export class GameDataPuzzle extends Component {
             this.setPuzzleStatus(puzzleId, PuzzleStatus.COMPLETED);
             console.log('[GameDataPuzzle] 拼图', puzzleId, '状态已设置为完成');
             
-            // 找到ID最小的锁定拼图并解锁
+            // 获取当前拼图的组ID
+            const currentGroupId = this.getPuzzleGroupId(puzzleId);
+            
+            // 获取同组的所有拼图ID
+            const sameGroupPuzzleIds = this.getPuzzleIdsByGroup(currentGroupId);
+            
+            // 在同组中找到ID最小的锁定拼图并解锁
             let foundLockedPuzzle = false;
-            for (let id = 1; id <= this.getTotalPuzzleCount(); id++) {
+            for (const id of sameGroupPuzzleIds.sort((a, b) => a - b)) {
                 if (this.getPuzzleStatus(id) === PuzzleStatus.LOCKED) {
                     this.setPuzzleStatus(id, PuzzleStatus.UNLOCKED);
-                    console.log('[GameDataPuzzle] 解锁ID最小的锁定拼图:', id);
+                    console.log(`[GameDataPuzzle] 解锁同组(${currentGroupId})内ID最小的锁定拼图:`, id);
                     foundLockedPuzzle = true;
                     break;
                 }
             }
             
             if (!foundLockedPuzzle) {
-                console.log('[GameDataPuzzle] 没有找到锁定的拼图，可能已完成所有拼图！');
+                console.log(`[GameDataPuzzle] 在组${currentGroupId}中没有找到锁定的拼图，该组可能已完成所有拼图！`);
             }
         } else {
             console.error('[GameDataPuzzle] 存档数据未初始化，无法完成拼图');
@@ -327,6 +409,349 @@ export class GameDataPuzzle extends Component {
             default:
                 return { rows: 3, cols: 3 };
         }
+    }
+
+    /**
+     * 初始化拼图数据（用于UIMainMenu的加载流程）
+     */
+    public async initializePuzzleData(): Promise<void> {
+        console.log('[GameDataPuzzle] 开始初始化拼图数据');
+        
+        // 确保存档数据已初始化
+        if (!this._saveData) {
+            this.initDefaultData();
+        }
+        
+        // 检查并处理动态图片URL
+        await this.processDynamicPuzzleImages();
+        
+        console.log('[GameDataPuzzle] 拼图数据初始化完成');
+    }
+    
+    /**
+     * 处理动态拼图图片
+     */
+    private async processDynamicPuzzleImages(): Promise<void> {
+        const totalPuzzles = this.getTotalPuzzleCount();
+        
+        for (let puzzleId = 1; puzzleId <= totalPuzzles; puzzleId++) {
+            const index = puzzleId - 1;
+            
+            // 检查是否有预设的SpriteFrame
+            const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
+            const hasURL = this.puzzleURL[index] && this.puzzleURL[index].trim() !== '';
+            
+            if (!hasSpriteFrame && hasURL) {
+                // 没有预设SpriteFrame但有URL，需要动态加载
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要动态加载: ${this.puzzleURL[index]}`);
+                
+                try {
+                    const spriteFrame = await this.loadImageFromURL(puzzleId, this.puzzleURL[index]);
+                    if (spriteFrame) {
+                        console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载成功`);
+                        // 状态已在loadImageFromURL中通过setPuzzleStatusAfterImageLoad设置
+                    } else {
+                        console.warn(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载失败`);
+                        this.setPuzzleStatus(puzzleId, PuzzleStatus.UNAVAILABLE);
+                    }
+                } catch (error) {
+                    console.warn(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载异常:`, error);
+                    this.setPuzzleStatus(puzzleId, PuzzleStatus.UNAVAILABLE);
+                }
+            } else if (!hasSpriteFrame && !hasURL) {
+                // 根据需求文档：没有SpriteFrame且没有URL，强行设置为UNAVAILABLE
+                console.warn(`[GameDataPuzzle] 拼图 ${puzzleId} 既没有预设图片也没有URL，设置为UNAVAILABLE`);
+                this.setPuzzleStatus(puzzleId, PuzzleStatus.UNAVAILABLE);
+            } else if (hasSpriteFrame) {
+                // 有预设的SpriteFrame，根据需求文档设置状态
+                this.setPuzzleStatusAfterImageLoad(puzzleId);
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 使用预设图片`);
+            }
+        }
+    }
+
+    /**
+     * 从URL加载图片并创建SpriteFrame
+     */
+    public async loadImageFromURL(puzzleId: number, url: string): Promise<SpriteFrame | null> {
+        // 检查是否已有缓存
+        const cachedPath = await this.getCachedImagePath(url);
+        if (cachedPath) {
+            console.log(`[GameDataPuzzle] 使用缓存图片: ${cachedPath}`);
+            const success = await this.loadImageFromLocalPath(cachedPath, puzzleId);
+            
+            // 使用缓存图片成功后，根据需求文档设置拼图状态
+            if (success) {
+                this.setPuzzleStatusAfterImageLoad(puzzleId);
+            }
+            
+            return success ? this.getPuzzleSpriteFrame(puzzleId) : null;
+        }
+
+        // 下载并缓存图片
+        const downloadedPath = await this.downloadAndCacheImage(url, puzzleId);
+        if (downloadedPath) {
+            const success = await this.loadImageFromLocalPath(downloadedPath, puzzleId);
+            return success ? this.getPuzzleSpriteFrame(puzzleId) : null;
+        }
+
+        console.error(`[GameDataPuzzle] 图片加载失败: ${url}`);
+        return null;
+    }
+
+    /**
+     * 获取缓存图片路径
+     */
+    private async getCachedImagePath(url: string): Promise<string | null> {
+        if (!this.fileSystemManager) return null;
+
+        const fileName = this.getFileNameFromUrl(url);
+        const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}/${fileName}`;
+
+        try {
+            this.fileSystemManager.accessSync(cachePath);
+            return cachePath;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * 下载并缓存图片
+     */
+    private async downloadAndCacheImage(url: string, puzzleId?: number, retryCount: number = 0): Promise<string | null> {
+        if (!this.fileSystemManager || typeof wx === 'undefined') {
+            console.warn('[GameDataPuzzle] 微信API不可用，无法下载图片');
+            return null;
+        }
+
+        // 防止重复下载
+        if (this.downloadingUrls.has(url)) {
+            console.log(`[GameDataPuzzle] 图片正在下载中: ${url}`);
+            // 等待下载完成
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return await this.getCachedImagePath(url);
+        }
+
+        this.downloadingUrls.add(url);
+
+        try {
+            const fileName = this.getFileNameFromUrl(url);
+            const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}/${fileName}`;
+
+            console.log(`[GameDataPuzzle] 开始下载图片: ${url}`);
+
+            return new Promise((resolve) => {
+                const downloadTask = wx.downloadFile({
+                    url: url,
+                    success: (res: any) => {
+                        if (res.statusCode === 200) {
+                            // 保存到持久化存储
+                            this.fileSystemManager.saveFile({
+                                tempFilePath: res.tempFilePath,
+                                filePath: cachePath,
+                                success: () => {
+                                    console.log(`[GameDataPuzzle] 图片缓存成功: ${cachePath}`);
+                                    
+                                    // 根据需求文档设置拼图状态
+                                    if (puzzleId !== undefined) {
+                                        this.setPuzzleStatusAfterImageLoad(puzzleId);
+                                    }
+                                    
+                                    this.downloadingUrls.delete(url);
+                                    resolve(cachePath);
+                                },
+                                fail: (error: any) => {
+                                    console.error('[GameDataPuzzle] 图片缓存失败:', error);
+                                    this.downloadingUrls.delete(url);
+                                    resolve(null);
+                                }
+                            });
+                        } else {
+                            console.error(`[GameDataPuzzle] 下载失败，状态码: ${res.statusCode}`);
+                            this.downloadingUrls.delete(url);
+                            resolve(null);
+                        }
+                    },
+                    fail: (error: any) => {
+                        console.error('[GameDataPuzzle] 下载失败:', error);
+                        this.downloadingUrls.delete(url);
+                        
+                        // 重试机制
+                        if (retryCount < this.MAX_RETRY_COUNT) {
+                            console.log(`[GameDataPuzzle] 重试下载 (${retryCount + 1}/${this.MAX_RETRY_COUNT}): ${url}`);
+                            setTimeout(async () => {
+                                const result = await this.downloadAndCacheImage(url, puzzleId, retryCount + 1);
+                                resolve(result);
+                            }, 1000 * (retryCount + 1)); // 递增延迟
+                        } else {
+                            resolve(null);
+                        }
+                    }
+                });
+
+                // 监听下载进度
+                if (downloadTask && downloadTask.onProgressUpdate) {
+                    downloadTask.onProgressUpdate((progress: any) => {
+                        console.log(`[GameDataPuzzle] 下载进度: ${progress.progress}% (${progress.totalBytesWritten}/${progress.totalBytesExpectedToWrite})`);
+                    });
+                }
+            });
+        } catch (error) {
+            console.error('[GameDataPuzzle] 下载异常:', error);
+            this.downloadingUrls.delete(url);
+            return null;
+        }
+    }
+
+    /**
+     * 从本地路径加载图片
+     */
+    private async loadImageFromLocalPath(localPath: string, puzzleId: number): Promise<boolean> {
+        return new Promise((resolve) => {
+            assetManager.loadRemote(localPath, { ext: '.png' }, (error, imageAsset: ImageAsset) => {
+                if (error) {
+                    console.error(`[GameDataPuzzle] 加载本地图片失败: ${localPath}`, error);
+                    resolve(false);
+                    return;
+                }
+
+                const texture = new Texture2D();
+                texture.image = imageAsset;
+                
+                const spriteFrame = new SpriteFrame();
+                spriteFrame.texture = texture;
+                
+                // 保存到拼图数据中
+                const index = puzzleId - 1;
+                if (index >= 0 && index < this.puzzleSpriteFrames.length) {
+                    this.puzzleSpriteFrames[index] = spriteFrame;
+                    console.log(`[GameDataPuzzle] 拼图 ${puzzleId} SpriteFrame创建成功`);
+                    resolve(true);
+                } else {
+                    console.error(`[GameDataPuzzle] 拼图ID超出范围: ${puzzleId}`);
+                    resolve(false);
+                }
+            });
+        });
+    }
+
+    /**
+     * 从URL提取文件名
+     */
+    private getFileNameFromUrl(url: string): string {
+        const urlObj = new URL(url);
+        let fileName = urlObj.pathname.split('/').pop() || 'image';
+        
+        // 确保有文件扩展名
+        if (!fileName.includes('.')) {
+            fileName += '.png';
+        }
+        
+        // 添加URL哈希以避免文件名冲突
+        const hash = this.simpleHash(url);
+        const parts = fileName.split('.');
+        const ext = parts.pop();
+        const name = parts.join('.');
+        
+        return `${name}_${hash}.${ext}`;
+    }
+
+    /**
+     * 简单哈希函数
+     */
+    private simpleHash(str: string): string {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 转换为32位整数
+        }
+        return Math.abs(hash).toString(16);
+    }
+
+    /**
+     * 清理缓存
+     */
+    public async clearImageCache(): Promise<void> {
+        if (!this.fileSystemManager) {
+            console.warn('[GameDataPuzzle] 文件系统管理器不可用，无法清理缓存');
+            return;
+        }
+
+        const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}`;
+        try {
+            const files = this.fileSystemManager.readdirSync(cachePath);
+            for (const file of files) {
+                const filePath = `${cachePath}/${file}`;
+                try {
+                    this.fileSystemManager.unlinkSync(filePath);
+                    console.log(`[GameDataPuzzle] 删除缓存文件: ${file}`);
+                } catch (error) {
+                    console.warn(`[GameDataPuzzle] 删除缓存文件失败: ${file}`, error);
+                }
+            }
+            console.log('[GameDataPuzzle] 缓存清理完成');
+        } catch (error) {
+            console.error('[GameDataPuzzle] 清理缓存失败:', error);
+        }
+    }
+
+    /**
+     * 获取缓存大小
+     */
+    public getCacheSize(): number {
+        if (!this.fileSystemManager) return 0;
+
+        const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}`;
+        let totalSize = 0;
+        
+        try {
+            const files = this.fileSystemManager.readdirSync(cachePath);
+            for (const file of files) {
+                const filePath = `${cachePath}/${file}`;
+                try {
+                    const stats = this.fileSystemManager.statSync(filePath);
+                    totalSize += stats.size;
+                } catch (error) {
+                    console.warn(`[GameDataPuzzle] 获取文件大小失败: ${file}`, error);
+                }
+            }
+        } catch (error) {
+            console.warn('[GameDataPuzzle] 获取缓存大小失败:', error);
+        }
+        
+        return totalSize;
+    }
+
+    /**
+     * 预加载指定拼图组的图片
+     */
+    public async preloadGroupImages(groupId: number, onProgress?: (current: number, total: number) => void): Promise<void> {
+        const puzzleIds = this.getPuzzleIdsByGroup(groupId);
+        let loadedCount = 0;
+        
+        console.log(`[GameDataPuzzle] 开始预加载拼图组 ${groupId} 的图片，共 ${puzzleIds.length} 张`);
+        
+        for (const puzzleId of puzzleIds) {
+            const url = this.getPuzzleURL(puzzleId);
+            if (url && url.trim() !== '') {
+                try {
+                    await this.loadImageFromURL(puzzleId, url);
+                    loadedCount++;
+                    
+                    if (onProgress) {
+                        onProgress(loadedCount, puzzleIds.length);
+                    }
+                    
+                    console.log(`[GameDataPuzzle] 预加载进度: ${loadedCount}/${puzzleIds.length}`);
+                } catch (error) {
+                    console.warn(`[GameDataPuzzle] 预加载拼图 ${puzzleId} 失败:`, error);
+                }
+            }
+        }
+        
+        console.log(`[GameDataPuzzle] 拼图组 ${groupId} 预加载完成`);
     }
 
     update(deltaTime: number) {
