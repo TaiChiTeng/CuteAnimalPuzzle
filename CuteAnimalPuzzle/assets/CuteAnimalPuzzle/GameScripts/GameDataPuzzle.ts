@@ -640,21 +640,32 @@ export class GameDataPuzzle extends Component {
      * 从URL提取文件名
      */
     private getFileNameFromUrl(url: string): string {
-        const urlObj = new URL(url);
-        let fileName = urlObj.pathname.split('/').pop() || 'image';
-        
-        // 确保有文件扩展名
-        if (!fileName.includes('.')) {
-            fileName += '.png';
+        // 微信小游戏环境不支持URL对象，使用字符串解析
+        try {
+            // 移除查询参数和锚点
+            const cleanUrl = url.split('?')[0].split('#')[0];
+            // 获取路径部分
+            const pathPart = cleanUrl.split('://')[1] || cleanUrl;
+            // 获取文件名
+            let fileName = pathPart.split('/').pop() || 'image';
+            
+            // 确保有文件扩展名
+            if (!fileName.includes('.')) {
+                fileName += '.png';
+            }
+            
+            // 添加URL哈希以避免文件名冲突
+            const hash = this.simpleHash(url);
+            const parts = fileName.split('.');
+            const ext = parts.pop();
+            const name = parts.join('.');
+            
+            return `${name}_${hash}.${ext}`;
+        } catch (error) {
+            console.warn('[GameDataPuzzle] URL解析失败，使用默认文件名:', error);
+            const hash = this.simpleHash(url);
+            return `image_${hash}.png`;
         }
-        
-        // 添加URL哈希以避免文件名冲突
-        const hash = this.simpleHash(url);
-        const parts = fileName.split('.');
-        const ext = parts.pop();
-        const name = parts.join('.');
-        
-        return `${name}_${hash}.${ext}`;
     }
 
     /**
