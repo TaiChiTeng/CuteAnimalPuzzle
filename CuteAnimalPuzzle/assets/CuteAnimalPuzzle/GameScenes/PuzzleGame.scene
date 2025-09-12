@@ -10418,7 +10418,7 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
+      "x": -100,
       "y": -450,
       "z": 0
     },
@@ -10880,7 +10880,7 @@
         "__id__": 292
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 295
@@ -10892,7 +10892,7 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 150,
+      "x": 100,
       "y": -450,
       "z": 0
     },
@@ -11400,7 +11400,9 @@
     "btnBack": {
       "__id__": 262
     },
-    "btnSave": null,
+    "btnSave": {
+      "__id__": 296
+    },
     "btnShare": {
       "__id__": 284
     },

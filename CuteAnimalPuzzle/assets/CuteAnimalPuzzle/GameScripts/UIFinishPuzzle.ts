@@ -65,7 +65,7 @@ export class UIFinishPuzzle extends Component {
         
         // 显示加载提示
         wx.showLoading({
-            title: '准备保存图片...',
+            title: '准备中...',
             mask: true
         });
         
@@ -76,16 +76,32 @@ export class UIFinishPuzzle extends Component {
             wx.hideLoading();
             
             if (!imagePath) {
-                this.showMessage('图片缓存未就绪，请稍后重试');
+                this.showMessage('图片未准备好，请稍后重试');
                 return;
             }
             
-            // 先向用户说明权限用途，然后申请权限并保存
-            this.requestSavePermissionAndSave(imagePath);
+            // 直接检查权限状态，不要先弹自定义窗口
+            wx.getSetting({
+                success: (res) => {
+                    if (res.authSetting['scope.writePhotosAlbum']) {
+                        // 已有权限，直接保存
+                        console.log('用户已有相册权限，直接保存');
+                        this.saveImageToAlbum(imagePath);
+                    } else {
+                        // 没有权限，直接请求权限
+                        console.log('用户未授权相册权限，开始申请');
+                        this.requestSavePermissionAndSave(imagePath);
+                    }
+                },
+                fail: () => {
+                    console.error('检查权限失败');
+                    this.showMessage('检查权限失败');
+                }
+            });
         } catch (error) {
             wx.hideLoading();
             console.error('[UIFinishPuzzle] 保存图片准备失败:', error);
-            this.showMessage('保存准备失败，请重试');
+            this.showMessage('保存失败，请重试');
         }
     }
 
@@ -268,19 +284,35 @@ export class UIFinishPuzzle extends Component {
             return;
         }
 
-        // 首先向用户说明权限用途
-        wx.showModal({
-            title: '保存图片',
-            content: '需要访问您的相册权限，用于保存完成的拼图图片到手机相册中，方便您随时查看和分享。',
-            confirmText: '同意',
-            cancelText: '取消',
-            success: (modalRes) => {
-                if (modalRes.confirm) {
-                    // 用户同意，开始检查和申请权限
-                    this.checkAndRequestAlbumPermission(imagePath);
+        // 直接请求相册权限（移除了自定义弹窗）
+        wx.authorize({
+            scope: 'scope.writePhotosAlbum',
+            success: () => {
+                // 授权成功，立即保存图片
+                console.log('用户授权相册权限成功');
+                this.printUserAuthSettings('用户授权相册权限后');
+                this.saveImageToAlbum(imagePath);
+            },
+            fail: (err) => {
+                console.error('授权失败:', err);
+                
+                // 授权失败时的处理
+                if (err.errMsg && err.errMsg.includes('auth deny')) {
+                    // 用户拒绝授权，引导到设置页
+                    wx.showModal({
+                        title: '权限申请',
+                        content: '保存图片需要相册权限。您已拒绝授权，请在设置中开启相册权限',
+                        confirmText: '去设置',
+                        cancelText: '取消',
+                        success: (modalRes) => {
+                            if (modalRes.confirm) {
+                                wx.openSetting({});
+                            }
+                        }
+                    });
                 } else {
-                    // 用户取消，关闭弹窗（什么都不做）
-                    console.log('用户取消保存图片');
+                    // 其他错误
+                    this.showMessage('授权失败，请重试');
                 }
             }
         });
@@ -298,7 +330,8 @@ export class UIFinishPuzzle extends Component {
                     wx.authorize({
                         scope: 'scope.writePhotosAlbum',
                         success: () => {
-                            // 授权成功，开始保存图片到用户手机系统相册
+                            // 授权成功，打印授权信息后开始保存图片到用户手机系统相册
+                            this.printUserAuthSettings('用户同意相册权限后');
                             this.saveImageToAlbum(imagePath);
                         },
                         fail: () => {
@@ -317,7 +350,8 @@ export class UIFinishPuzzle extends Component {
                         }
                     });
                 } else {
-                    // 已授权，直接保存图片到用户手机系统相册
+                    // 已授权，打印授权信息后直接保存图片到用户手机系统相册
+                    this.printUserAuthSettings('用户已有相册权限');
                     this.saveImageToAlbum(imagePath);
                 }
             },
@@ -347,13 +381,26 @@ export class UIFinishPuzzle extends Component {
             fail: (error) => {
                 console.error('保存到相册失败:', error);
                 // 处理保存失败的具体原因
-                let errorMsg = '保存失败，请重试';
                 if (error.errMsg && error.errMsg.includes('auth deny')) {
-                    errorMsg = '无相册访问权限，请授权后重试';
-                } else if (error.errMsg && error.errMsg.includes('invalid file type')) {
-                    errorMsg = '图片格式不支持';
+                    // 权限被拒绝，引导用户去设置页面
+                    wx.showModal({
+                        title: '权限申请',
+                        content: '保存图片需要相册权限，请在设置中开启相册权限',
+                        confirmText: '去设置',
+                        cancelText: '取消',
+                        success: (modalRes) => {
+                            if (modalRes.confirm) {
+                                wx.openSetting({});
+                            }
+                        }
+                    });
+                } else {
+                    let errorMsg = '保存失败，请重试';
+                    if (error.errMsg && error.errMsg.includes('invalid file type')) {
+                        errorMsg = '图片格式不支持';
+                    }
+                    this.handleSaveFail(errorMsg);
                 }
-                this.handleSaveFail(errorMsg);
             }
         });
     }
@@ -388,6 +435,37 @@ export class UIFinishPuzzle extends Component {
             console.log('当前不在微信小游戏环境，无法分享');
             this.showMessage('当前环境不支持分享功能');
         }
+    }
+
+    /**
+     * 打印用户授权设置信息
+     * @param context 调用上下文描述
+     */
+    private printUserAuthSettings(context: string): void {
+        if (typeof wx === 'undefined') {
+            console.log(`[UIFinishPuzzle] ${context} - 当前不在微信小游戏环境`);
+            return;
+        }
+
+        wx.getSetting({
+            success: (res) => {
+                console.log(`[UIFinishPuzzle] ${context} - 用户授权信息:`);
+                console.log('authSetting:', res.authSetting);
+                
+                // 特别关注相册权限
+                const albumPermission = res.authSetting['scope.writePhotosAlbum'];
+                console.log('相册权限 (scope.writePhotosAlbum):', albumPermission);
+                
+                // 打印其他常见权限
+                const userInfoPermission = res.authSetting['scope.userInfo'];
+                const locationPermission = res.authSetting['scope.userLocation'];
+                console.log('用户信息权限 (scope.userInfo):', userInfoPermission);
+                console.log('位置权限 (scope.userLocation):', locationPermission);
+            },
+            fail: (error) => {
+                console.error(`[UIFinishPuzzle] ${context} - 获取用户授权信息失败:`, error);
+            }
+        });
     }
 
     /**
