@@ -59,12 +59,34 @@ export class UIFinishPuzzle extends Component {
     /**
      * 保存图片按钮点击事件
      */
-    private onSaveButtonClick(): void {
+    private async onSaveButtonClick(): Promise<void> {
         console.log('[UIFinishPuzzle] 点击保存拼图图片按钮');
         console.log('[UIFinishPuzzle] 当前拼图ID:', this.currentPuzzleId);
         
-        // 先向用户说明权限用途，然后申请权限并保存
-        this.requestSavePermissionAndSave();
+        // 显示加载提示
+        wx.showLoading({
+            title: '准备保存图片...',
+            mask: true
+        });
+        
+        try {
+            // 获取图片路径
+            const imagePath = await this.getPuzzleCachedImagePath();
+            
+            wx.hideLoading();
+            
+            if (!imagePath) {
+                this.showMessage('图片缓存未就绪，请稍后重试');
+                return;
+            }
+            
+            // 先向用户说明权限用途，然后申请权限并保存
+            this.requestSavePermissionAndSave(imagePath);
+        } catch (error) {
+            wx.hideLoading();
+            console.error('[UIFinishPuzzle] 保存图片准备失败:', error);
+            this.showMessage('保存准备失败，请重试');
+        }
     }
 
     /**
@@ -182,6 +204,35 @@ export class UIFinishPuzzle extends Component {
     }
 
     /**
+     * 获取拼图的缓存图片路径（用于保存到相册）
+     * @returns {Promise<string | null>} 返回缓存图片的本地路径，如果无法获取则返回null
+     */
+    public async getPuzzleCachedImagePath(): Promise<string | null> {
+        try {
+            const gameData = GameDataPuzzle.instance;
+            if (!gameData) {
+                console.error('[UIFinishPuzzle] GameDataPuzzle实例不存在');
+                return null;
+            }
+
+            // 尝试获取缓存图片路径
+            const cachedPath = await gameData.getPuzzleCachedImagePath(this.currentPuzzleId);
+            if (cachedPath) {
+                console.log('[UIFinishPuzzle] 找到缓存图片路径:', cachedPath);
+                return cachedPath;
+            } else {
+                console.warn('[UIFinishPuzzle] 无法获取拼图缓存路径，puzzleId:', this.currentPuzzleId);
+                return null;
+            }
+        } catch (error) {
+            console.error('[UIFinishPuzzle] 获取缓存图片路径时发生错误:', error);
+            return null;
+        }
+    }
+
+
+
+    /**
      * 显示操作按钮（分享和保存）
      */
     private showActionButtons(): void {
@@ -207,8 +258,9 @@ export class UIFinishPuzzle extends Component {
 
     /**
      * 请求保存权限并保存图片
+     * @param imagePath 要保存的图片路径
      */
-    private requestSavePermissionAndSave(): void {
+    private requestSavePermissionAndSave(imagePath: string): void {
         // 检查是否在微信小游戏环境
         if (typeof wx === 'undefined') {
             console.log('当前不在微信小游戏环境，无法保存到相册');
@@ -225,7 +277,7 @@ export class UIFinishPuzzle extends Component {
             success: (modalRes) => {
                 if (modalRes.confirm) {
                     // 用户同意，开始检查和申请权限
-                    this.checkAndRequestAlbumPermission();
+                    this.checkAndRequestAlbumPermission(imagePath);
                 } else {
                     // 用户取消，关闭弹窗（什么都不做）
                     console.log('用户取消保存图片');
@@ -236,8 +288,9 @@ export class UIFinishPuzzle extends Component {
 
     /**
      * 检查并申请相册权限
+     * @param imagePath 要保存的图片路径
      */
-    private checkAndRequestAlbumPermission(): void {
+    private checkAndRequestAlbumPermission(imagePath: string): void {
         wx.getSetting({
             success: (res) => {
                 if (!res.authSetting['scope.writePhotosAlbum']) {
@@ -246,7 +299,7 @@ export class UIFinishPuzzle extends Component {
                         scope: 'scope.writePhotosAlbum',
                         success: () => {
                             // 授权成功，开始保存图片到用户手机系统相册
-                            this.saveToPhotosAlbum(this.spriteFrameFilePath);
+                            this.saveImageToAlbum(imagePath);
                         },
                         fail: () => {
                             // 授权失败，引导用户去设置页面开启
@@ -265,36 +318,55 @@ export class UIFinishPuzzle extends Component {
                     });
                 } else {
                     // 已授权，直接保存图片到用户手机系统相册
-                    this.saveToPhotosAlbum(this.spriteFrameFilePath);
+                    this.saveImageToAlbum(imagePath);
                 }
             },
             fail: (error) => {
                 console.error('获取设置失败:', error);
-                this.showMessage('获取权限设置失败');
+                this.handleSaveFail('获取权限设置失败');
             }
         });
     }
 
     /**
-     * 保存图片到相册
+     * 调用微信API保存图片到相册
+     * @param filePath 要保存的图片文件路径
      */
-    private saveToPhotosAlbum(filePath: string): void {
+    private saveImageToAlbum(filePath: string): void {
         wx.saveImageToPhotosAlbum({
             filePath: filePath,
             success: () => {
+                // 保存成功提示
+                wx.showToast({
+                    title: '图片已保存到相册',
+                    icon: 'success',
+                    duration: 1500
+                });
                 console.log('图片保存到相册成功');
-                this.showMessage('图片已保存到相册');
             },
             fail: (error) => {
                 console.error('保存到相册失败:', error);
+                // 处理保存失败的具体原因
+                let errorMsg = '保存失败，请重试';
                 if (error.errMsg && error.errMsg.includes('auth deny')) {
-                    this.showMessage('请授权访问相册后重试');
+                    errorMsg = '无相册访问权限，请授权后重试';
                 } else if (error.errMsg && error.errMsg.includes('invalid file type')) {
-                    this.showMessage('图片格式不支持，保存失败');
-                } else {
-                    this.showMessage('保存失败，请重试');
+                    errorMsg = '图片格式不支持';
                 }
+                this.handleSaveFail(errorMsg);
             }
+        });
+    }
+
+    /**
+     * 处理保存失败的情况
+     * @param message 错误提示信息
+     */
+    private handleSaveFail(message: string): void {
+        wx.showToast({
+            title: message,
+            icon: 'none',
+            duration: 1500
         });
     }
 

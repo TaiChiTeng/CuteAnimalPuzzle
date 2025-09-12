@@ -466,6 +466,11 @@ export class GameDataPuzzle extends Component {
                 // 有预设的SpriteFrame，根据需求文档设置状态
                 this.setPuzzleStatusAfterImageLoad(puzzleId);
                 console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 使用预设图片`);
+                
+                // 为预设SpriteFrame创建缓存文件（异步执行，不阻塞初始化）
+                this.cacheSpriteFrameAsImage(puzzleId, this.puzzleSpriteFrames[index]).catch(error => {
+                    console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} 缓存创建失败:`, error);
+                });
             }
         }
     }
@@ -514,6 +519,100 @@ export class GameDataPuzzle extends Component {
         } catch (error) {
             return null;
         }
+    }
+
+    /**
+     * 为预设SpriteFrame创建缓存文件
+     */
+    private async cacheSpriteFrameAsImage(puzzleId: number, spriteFrame: SpriteFrame): Promise<string | null> {
+        if (!this.fileSystemManager) {
+            console.warn('[GameDataPuzzle] 文件系统管理器未初始化');
+            return null;
+        }
+
+        try {
+            // 生成缓存文件名
+            const fileName = `preset_puzzle_${puzzleId}.png`;
+            const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}/${fileName}`;
+
+            // 检查缓存文件是否已存在
+            try {
+                const stats = this.fileSystemManager.statSync(cachePath);
+                if (stats.isFile()) {
+                    console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 缓存文件已存在: ${cachePath}`);
+                    return cachePath;
+                }
+            } catch (e) {
+                // 文件不存在，继续创建
+            }
+
+            // 获取纹理数据
+            const texture = spriteFrame.texture as Texture2D;
+            if (!texture) {
+                console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} 无法获取纹理`);
+                return null;
+            }
+
+            // 获取图像数据
+            const imageAsset = texture.image as ImageAsset;
+            if (!imageAsset) {
+                console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} 无法获取图像资源`);
+                return null;
+            }
+
+            // 获取原始数据
+            const nativeAsset = imageAsset.nativeAsset;
+            if (!nativeAsset) {
+                console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} 无法获取原始资源`);
+                return null;
+            }
+
+            // 创建Canvas来转换图片
+            const canvas = wx.createCanvas();
+            const ctx = canvas.getContext('2d');
+            
+            // 设置canvas尺寸
+            canvas.width = imageAsset.width;
+            canvas.height = imageAsset.height;
+            
+            // 绘制图片到canvas
+            ctx.drawImage(nativeAsset, 0, 0);
+            
+            // 转换为base64
+            const base64Data = canvas.toDataURL('image/png');
+            
+            // 移除base64前缀
+            const imageData = base64Data.replace(/^data:image\/png;base64,/, '');
+            
+            // 保存到文件
+            this.fileSystemManager.writeFileSync(cachePath, imageData, 'base64');
+            
+            console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 缓存创建成功: ${cachePath}`);
+            return cachePath;
+            
+        } catch (error) {
+            console.error(`[GameDataPuzzle] 预设拼图 ${puzzleId} 缓存创建失败:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * 获取拼图的缓存图片路径（公共方法，供其他组件使用）
+     * @param puzzleId 拼图ID
+     * @returns 缓存图片路径，如果没有缓存则返回null
+     */
+    public async getPuzzleCachedImagePath(puzzleId: number): Promise<string | null> {
+        const url = this.getPuzzleURL(puzzleId);
+        if (!url || url.trim() === '') {
+            // 检查是否有预设SpriteFrame
+            const spriteFrame = this.getPuzzleSpriteFrame(puzzleId);
+            if (spriteFrame) {
+                // 为预设SpriteFrame创建缓存
+                return await this.cacheSpriteFrameAsImage(puzzleId, spriteFrame);
+            }
+            return null;
+        }
+        return await this.getCachedImagePath(url);
     }
 
     /**
