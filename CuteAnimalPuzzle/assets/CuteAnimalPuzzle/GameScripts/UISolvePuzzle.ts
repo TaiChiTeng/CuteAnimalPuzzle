@@ -13,6 +13,9 @@ export class UISolvePuzzle extends Component {
     @property(Button)
     public btnHint: Button = null;
 
+    @property(Button)
+    public btnHideHint: Button = null;
+
     @property(Node)
     public hintImage: Node = null;  // 拼图提示图片
     
@@ -57,7 +60,7 @@ export class UISolvePuzzle extends Component {
     private gridSlots: Node[] = [];  // 网格槽位
     private gridAnswerSlots: Node[] = [];  // 答案槽位
     private dragPieceSlots: Node[] = [];  // 拖拽出列表的拼图切片数组
-    private dragSideLength: number = 720;  // 拖拽出列表的拼图切片总边长
+    private dragSideLength: number = 660;  // 拖拽出列表的拼图切片总边长
     private currentDragPiece: Node = null;  // 当前正在拖动的拼图切片
     private currentDraggedPuzzlePiece: PuzzlePiece = null;  // 当前被拖拽的原始拼图切片
     private isDragFromPuzzleList: boolean = false;  // 标记当前拖拽是否来自puzzlePieces列表
@@ -83,6 +86,10 @@ export class UISolvePuzzle extends Component {
         // 绑定按钮事件
         this.btnBack?.node.on(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.on(Button.EventType.CLICK, this.onHintButtonClick, this);
+        this.btnHideHint?.node.on(Button.EventType.CLICK, this.onHideHintButtonClick, this);
+        
+        // 设置提示按钮的初始状态
+        this.initializeHintButtonsState();
         
         // 不再在dragArea上绑定鼠标事件，改为在拼图切片上绑定
     }
@@ -91,6 +98,7 @@ export class UISolvePuzzle extends Component {
         // 移除事件监听
         this.btnBack?.node.off(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.btnHint?.node.off(Button.EventType.CLICK, this.onHintButtonClick, this);
+        this.btnHideHint?.node.off(Button.EventType.CLICK, this.onHideHintButtonClick, this);
         
         // 移除拼图切片的鼠标事件
         this.removePieceMouseEvents();
@@ -186,18 +194,68 @@ export class UISolvePuzzle extends Component {
     }
      
     /**
-     * 提示按钮点击事件
+     * 初始化提示按钮状态
+     */
+    private initializeHintButtonsState(): void {
+        // 默认隐藏提示图片
+        if (this.hintImage) {
+            this.hintImage.active = false;
+        }
+        
+        // 显示开启提示按钮，隐藏关闭提示按钮
+        if (this.btnHint?.node) {
+            this.btnHint.node.active = true;
+        }
+        if (this.btnHideHint?.node) {
+            this.btnHideHint.node.active = false;
+        }
+        
+        console.log('[UISolvePuzzle] 提示按钮初始状态设置完成');
+    }
+
+    /**
+     * 开启提示按钮点击事件
      */
     private onHintButtonClick(): void {
-        console.log('[UISolvePuzzle] 点击提示按钮');
+        console.log('[UISolvePuzzle] 点击开启提示按钮');
         
-        // 显示/隐藏提示图片
+        // 显示提示图片
         if (this.hintImage) {
-            const newState = !this.hintImage.active;
-            this.hintImage.active = newState;
-            console.log('[UISolvePuzzle] 提示图片状态:', newState ? '显示' : '隐藏');
+            this.hintImage.active = true;
+            console.log('[UISolvePuzzle] 显示提示图片');
         } else {
             console.error('[UISolvePuzzle] 提示图片节点未找到');
+        }
+        
+        // 隐藏开启提示按钮，显示关闭提示按钮
+        if (this.btnHint?.node) {
+            this.btnHint.node.active = false;
+        }
+        if (this.btnHideHint?.node) {
+            this.btnHideHint.node.active = true;
+        }
+    }
+
+    /**
+     * 关闭提示按钮点击事件
+     */
+    private onHideHintButtonClick(): void {
+        console.log('[UISolvePuzzle] 点击关闭提示按钮');
+        
+        // 隐藏提示图片
+        if (this.hintImage) {
+            this.hintImage.active = false;
+            console.log('[UISolvePuzzle] 隐藏提示图片');
+        } else {
+            console.error('[UISolvePuzzle] 提示图片节点未找到');
+        }
+        
+        // 显示开启提示按钮，隐藏关闭提示按钮
+        if (this.btnHint?.node) {
+            this.btnHint.node.active = true;
+        }
+        if (this.btnHideHint?.node) {
+            this.btnHideHint.node.active = false;
         }
     }
 
@@ -1244,7 +1302,7 @@ export class UISolvePuzzle extends Component {
         if (gameData) {
             this.currentPuzzleId = gameData.getSelectedPuzzleId();
             this.currentDifficulty = gameData.getCurrentDifficulty();
-            
+            this.initializeHintButtonsState();
             this.initializePuzzle();
         }
         // 声音按钮状态由UIManager统一更新
