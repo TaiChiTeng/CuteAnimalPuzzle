@@ -261,7 +261,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "sprPuzzle3",
+    "_name": "SprFrame-001",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -335,7 +335,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "a0YtCYImtIoISbs+/qW5Nu"
+    "fileId": "a5jkqqwn5DrIghIMkoDF4y"
   },
   {
     "__type__": "cc.Sprite",
@@ -354,13 +354,13 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
+      "r": 64,
+      "g": 168,
       "b": 255,
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "e289e367-0970-469c-984a-92c51f27bf70@f9941",
+      "__uuid__": "7d8f9b89-4fd1-4c9f-a3ab-38ec7cded7ca@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -380,7 +380,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "87RpWWf89K4J+Rp38oxxAe"
+    "fileId": "e4XGMcNjxNCr+El/bmc0Rs"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -390,7 +390,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "6dr+D6SRdA8pMJ5Hf8GVFH",
+    "fileId": "ac6roxpQJCmpYVvlqfR8Ss",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -628,7 +628,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "sprPuzzle2",
+    "_name": "SprFrame-001",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -702,7 +702,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "e0cw0HLHZFMbm28K5XSD0P"
+    "fileId": "1dnaS2CnlFeKpT70ad//8W"
   },
   {
     "__type__": "cc.Sprite",
@@ -721,13 +721,13 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 245,
+      "g": 149,
+      "b": 150,
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "bb2e4a7f-5468-4799-b223-22cb0361b751@f9941",
+      "__uuid__": "7d8f9b89-4fd1-4c9f-a3ab-38ec7cded7ca@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -747,7 +747,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "21ajFaEudBsbYcbfUSUt27"
+    "fileId": "7djB0g/d9BapwcvUsMwOV3"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -757,7 +757,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "c6JIQbBCtD+L9C5abO2pSo",
+    "fileId": "2dRGqVFYtPp6eQGdHTgnbL",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null

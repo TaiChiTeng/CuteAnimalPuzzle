@@ -14,9 +14,9 @@ export enum PuzzleStatus {
 
 // 拼图难度枚举
 export enum PuzzleDifficulty {
-    EASY = 9,     // 9张拼图
-    MEDIUM = 16,  // 16张拼图
-    HARD = 25     // 25张拼图
+    EASY = 9,     // 9张拼图切片，mask数组可以配置9个
+    MEDIUM = 16,  // 16张拼图切片，mask数组可以配置16个
+    HARD = 25     // 25张拼图切片，mask数组可以配置25个
 }
 
 // 存档数据接口

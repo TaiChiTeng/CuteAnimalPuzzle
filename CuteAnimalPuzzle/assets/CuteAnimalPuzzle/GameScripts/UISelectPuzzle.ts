@@ -48,7 +48,7 @@ export class UISelectPuzzle extends Component {
 
     // 拼图组的内容itemPuzzleGroupPrefab，点击切换展示
     // 隐藏puzzleGroupScrollView，根据根据itemPuzzleGroupPrefab的索引，puzzleScrollView展示对应的拼图组；
-    // itemPuzzleGroupPrefab里边有3张图片，分别展示对应拼图组的第1，2，3张图片
+    // itemPuzzleGroupPrefab里边只展示对应拼图组的第1张图片
     @property(Prefab)
     public itemPuzzleGroupPrefab: Prefab = null;
 
@@ -697,36 +697,34 @@ export class UISelectPuzzle extends Component {
         // 获取该组的拼图ID列表
         const puzzleIds = gameData.getPuzzleIdsByGroup(groupId);
         
-        // 设置前3张图片
-        for (let i = 0; i < 3; i++) {
-            const showNode = groupItem.getChildByName(`itemPuzzleShow${i + 1}`);
-            if (showNode) {
-                const spriteNode = showNode.getChildByName(`sprPuzzle${i + 1}`);
-                if (spriteNode) {
-                    const sprite = spriteNode.getComponent(Sprite);
-                    if (sprite && i < puzzleIds.length) {
-                        const puzzleId = puzzleIds[i];
-                        
-                        // 先尝试同步获取
-                        let spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
-                        
-                        if (!spriteFrame) {
-                            // 如果没有同步获取到，尝试异步加载
-                            try {
-                                spriteFrame = await resourceManager.loadPuzzleImageAsync(puzzleId);
-                            } catch (error) {
-                                console.error(`[UISelectPuzzle] 异步加载拼图组预览图片 ${puzzleId} 失败:`, error);
-                            }
+        // 只设置第1张图片
+        const showNode1 = groupItem.getChildByName('itemPuzzleShow1');
+        if (showNode1) {
+            const spriteNode1 = showNode1.getChildByName('sprPuzzle1');
+            if (spriteNode1) {
+                const sprite1 = spriteNode1.getComponent(Sprite);
+                if (sprite1 && puzzleIds.length > 0) {
+                    const puzzleId = puzzleIds[0];
+                    
+                    // 先尝试同步获取
+                    let spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
+                    
+                    if (!spriteFrame) {
+                        // 如果没有同步获取到，尝试异步加载
+                        try {
+                            spriteFrame = await resourceManager.loadPuzzleImageAsync(puzzleId);
+                        } catch (error) {
+                            console.error(`[UISelectPuzzle] 异步加载拼图组预览图片 ${puzzleId} 失败:`, error);
                         }
-                        
-                        if (spriteFrame) {
-                            sprite.spriteFrame = spriteFrame;
-                        }
+                    }
+                    
+                    if (spriteFrame) {
+                        sprite1.spriteFrame = spriteFrame;
                     }
                 }
             }
         }
-        
+               
         // 绑定点击事件
         const button = groupItem.getComponent(Button);
         if (button) {
