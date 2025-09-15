@@ -6201,7 +6201,7 @@
         "__id__": 245
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 252
@@ -8304,7 +8304,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "texBtnIconTipHide",
+    "_name": "texBtnIconTipShow",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -8393,7 +8393,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "3d4662fc-2e3e-4dac-8c97-365fbaf676e4@7326c",
+      "__uuid__": "3d4662fc-2e3e-4dac-8c97-365fbaf676e4@c443e",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -8408,7 +8408,10 @@
     "_fillRange": 0,
     "_isTrimmedMode": true,
     "_useGrayscale": false,
-    "_atlas": null,
+    "_atlas": {
+      "__uuid__": "3d4662fc-2e3e-4dac-8c97-365fbaf676e4",
+      "__expectedType__": "cc.SpriteAtlas"
+    },
     "_id": "741LW/WZVOvYLRHwnm/hR7"
   },
   {
@@ -8778,7 +8781,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "texBtnIconTipShow",
+    "_name": "texBtnIconTipHide",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -8867,7 +8870,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "3d4662fc-2e3e-4dac-8c97-365fbaf676e4@c443e",
+      "__uuid__": "3d4662fc-2e3e-4dac-8c97-365fbaf676e4@7326c",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -8882,7 +8885,10 @@
     "_fillRange": 0,
     "_isTrimmedMode": true,
     "_useGrayscale": false,
-    "_atlas": null,
+    "_atlas": {
+      "__uuid__": "3d4662fc-2e3e-4dac-8c97-365fbaf676e4",
+      "__expectedType__": "cc.SpriteAtlas"
+    },
     "_id": "7c/WMx30xPyK3LVeYL0OMh"
   },
   {
@@ -12110,16 +12116,16 @@
       "",
       "",
       "",
-      "https://picsum.photos/id/13/1024/1024",
-      "https://picsum.photos/id/17/1024/1024",
-      "https://picsum.photos/id/20/1024/1024",
-      "https://picsum.photos/id/29/1024/1024",
-      "https://picsum.photos/id/41/1024/1024",
-      "https://picsum.photos/id/55/1024/1024",
-      "https://picsum.photos/id/65/1024/1024",
-      "https://picsum.photos/id/74/1024/1024",
-      "https://picsum.photos/id/77/1024/1024",
-      "https://picsum.photos/id/82/1024/1024"
+      "001",
+      "002",
+      "003",
+      "004",
+      "005",
+      "006",
+      "007",
+      "008",
+      "009",
+      "010"
     ],
     "_id": "5eX7D2JKFERoOlK2+9qVUy"
   },

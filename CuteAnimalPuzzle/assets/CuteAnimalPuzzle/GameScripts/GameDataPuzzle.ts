@@ -39,6 +39,15 @@ export class GameDataPuzzle extends Component {
     private fileSystemManager: any = null; // 文件系统管理器
     private downloadingUrls: Set<string> = new Set(); // 正在下载的URL集合
     
+    // 下载的URL前缀
+    private readonly URL_PREFIX = 'https://cdn.jsdelivr.net/gh/TaiChiTeng/CuteAnimalPuzzle@master/';
+    // 拼图图片目录
+    private readonly PUZZLE_DIR = 'texPuzzles/';
+    // 拼图图片文件名前缀
+    private readonly PUZZLE_PREFIX = 'texPuzzle_';
+    // 拼图图片文件名后缀
+    private readonly PUZZLE_SUFFIX = '.png';
+    
     // 拼图配置数据结构
     @property({ type: [SpriteFrame], displayName: "拼图图片列表" })
     public puzzleSpriteFrames: SpriteFrame[] = [];
@@ -624,25 +633,28 @@ export class GameDataPuzzle extends Component {
             return null;
         }
 
+        // 构建完整的URL用于下载管理
+        const fullUrl = this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + url + this.PUZZLE_SUFFIX;
+
         // 防止重复下载
-        if (this.downloadingUrls.has(url)) {
-            console.log(`[GameDataPuzzle] 图片正在下载中: ${url}`);
+        if (this.downloadingUrls.has(fullUrl)) {
+            console.log(`[GameDataPuzzle] 图片正在下载中: ${fullUrl}`);
             // 等待下载完成
             await new Promise(resolve => setTimeout(resolve, 1000));
             return await this.getCachedImagePath(url);
         }
 
-        this.downloadingUrls.add(url);
+        this.downloadingUrls.add(fullUrl);
 
         try {
             const fileName = this.getFileNameFromUrl(url);
             const cachePath = `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}/${fileName}`;
 
-            console.log(`[GameDataPuzzle] 开始下载图片: ${url}`);
+            console.log(`[GameDataPuzzle] 开始下载图片: ${fullUrl}`);
 
             return new Promise((resolve) => {
                 const downloadTask = wx.downloadFile({
-                    url: url,
+                    url: fullUrl,
                     success: (res: any) => {
                         if (res.statusCode === 200) {
                             // 保存到持久化存储
@@ -657,24 +669,24 @@ export class GameDataPuzzle extends Component {
                                         this.setPuzzleStatusAfterImageLoad(puzzleId);
                                     }
                                     
-                                    this.downloadingUrls.delete(url);
+                                    this.downloadingUrls.delete(fullUrl);
                                     resolve(cachePath);
                                 },
                                 fail: (error: any) => {
                                     console.error('[GameDataPuzzle] 图片缓存失败:', error);
-                                    this.downloadingUrls.delete(url);
+                                    this.downloadingUrls.delete(fullUrl);
                                     resolve(null);
                                 }
                             });
                         } else {
                             console.error(`[GameDataPuzzle] 下载失败，状态码: ${res.statusCode}`);
-                            this.downloadingUrls.delete(url);
+                            this.downloadingUrls.delete(fullUrl);
                             resolve(null);
                         }
                     },
                     fail: (error: any) => {
                         console.error('[GameDataPuzzle] 下载失败:', error);
-                        this.downloadingUrls.delete(url);
+                        this.downloadingUrls.delete(fullUrl);
                         
                         // 重试机制
                         if (retryCount < this.MAX_RETRY_COUNT) {
@@ -698,7 +710,7 @@ export class GameDataPuzzle extends Component {
             });
         } catch (error) {
             console.error('[GameDataPuzzle] 下载异常:', error);
-            this.downloadingUrls.delete(url);
+            this.downloadingUrls.delete(fullUrl);
             return null;
         }
     }
