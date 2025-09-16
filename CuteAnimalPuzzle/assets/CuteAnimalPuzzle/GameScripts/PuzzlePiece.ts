@@ -1,4 +1,5 @@
-import { _decorator, Component, Node, Sprite, Vec3, UITransform, EventTouch, input, Input, Camera, geometry, PhysicsSystem2D, Vec2 } from 'cc';
+import { _decorator, Component, Node, Sprite, Vec3, UITransform, EventTouch, input, Input, Camera, geometry, PhysicsSystem2D, Vec2, SpriteFrame, Mask } from 'cc';
+import { GameDataPuzzle, PuzzleDifficulty } from './GameDataPuzzle';
 const { ccclass, property } = _decorator;
 
 @ccclass('PuzzlePiece')
@@ -13,6 +14,8 @@ export class PuzzlePiece extends Component {
     public correctCol: number = 0;  // 正确的列位置
     
     private uiTransform: UITransform = null;
+    private maskNode: Node = null;  // 遮罩节点
+    private maskComponent: Mask = null;  // 遮罩组件
     
     start() {
         this.uiTransform = this.getComponent(UITransform);
@@ -71,6 +74,49 @@ export class PuzzlePiece extends Component {
         this.pieceIndex = index;
         this.correctRow = correctRow;
         this.correctCol = correctCol;
+    }
+    
+    /**
+     * 设置拼图切片的遮罩
+     * @param maskSpriteFrame 遮罩SpriteFrame
+     */
+    public setMask(maskSpriteFrame: SpriteFrame): void {
+        if (!maskSpriteFrame) {
+            console.warn(`[PuzzlePiece] 拼图切片 ${this.pieceIndex} 没有提供遮罩SpriteFrame`);
+            return;
+        }
+        
+        // 查找或创建遮罩节点
+        this.maskNode = this.node.getChildByName('Mask');
+        if (!this.maskNode) {
+            console.warn(`[PuzzlePiece] 拼图切片 ${this.pieceIndex} 没有找到Mask子节点`);
+            return;
+        }
+        
+        // 获取遮罩组件
+        this.maskComponent = this.maskNode.getComponent(Mask);
+        if (!this.maskComponent) {
+            console.warn(`[PuzzlePiece] 拼图切片 ${this.pieceIndex} 的Mask节点没有Mask组件`);
+            return;
+        }
+        
+        // 设置遮罩的SpriteFrame
+        this.maskComponent.spriteFrame = maskSpriteFrame;
+        console.log(`[PuzzlePiece] 拼图切片 ${this.pieceIndex} 遮罩设置成功`);
+    }
+    
+    /**
+     * 获取遮罩节点
+     */
+    public getMaskNode(): Node | null {
+        return this.maskNode;
+    }
+    
+    /**
+     * 获取遮罩组件
+     */
+    public getMaskComponent(): Mask | null {
+        return this.maskComponent;
     }
     
     /**

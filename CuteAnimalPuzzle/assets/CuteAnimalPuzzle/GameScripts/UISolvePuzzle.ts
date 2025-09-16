@@ -1530,6 +1530,9 @@ export class UISolvePuzzle extends Component {
             // 设置拼图切片图片（这里需要根据实际需求实现切片逻辑）
             this.setupPieceSprite(pieceNode, i);
             
+            // 设置拼图切片遮罩
+            this.setupPieceMask(puzzlePiece, i);
+            
             // 为拼图切片添加鼠标事件
             this.setupPieceMouseEvents(pieceNode, puzzlePiece);
             
@@ -1563,6 +1566,16 @@ export class UISolvePuzzle extends Component {
                     sprite.spriteFrame = pieceSpriteFrame;
                 }
             }
+        }
+    }
+
+    /**
+     * 设置拼图切片遮罩
+     */
+    private setupPieceMask(puzzlePiece: PuzzlePiece, index: number): void {
+        const maskSpriteFrame = GameDataPuzzle.getMaskSpriteFrame(this.currentDifficulty, index);
+        if (maskSpriteFrame) {
+            puzzlePiece.setMask(maskSpriteFrame);
         }
     }
 

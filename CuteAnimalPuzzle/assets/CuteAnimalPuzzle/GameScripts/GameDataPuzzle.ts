@@ -60,6 +60,16 @@ export class GameDataPuzzle extends Component {
     
     @property({ type: [CCString], displayName: "拼图URL" })
     public puzzleURL: string[] = [];
+    
+    // 拼图切片遮罩配置数组
+    @property({ type: [SpriteFrame], displayName: "简单难度遮罩(9张)" })
+    public easyMaskSpriteFrames: SpriteFrame[] = [];
+    
+    @property({ type: [SpriteFrame], displayName: "中等难度遮罩(16张)" })
+    public mediumMaskSpriteFrames: SpriteFrame[] = [];
+    
+    @property({ type: [SpriteFrame], displayName: "困难难度遮罩(25张)" })
+    public hardMaskSpriteFrames: SpriteFrame[] = [];
 
     public static get instance(): GameDataPuzzle {
         return GameDataPuzzle._instance;
@@ -417,6 +427,68 @@ export class GameDataPuzzle extends Component {
                 return { rows: 5, cols: 5 };
             default:
                 return { rows: 3, cols: 3 };
+        }
+    }
+
+    /**
+     * 获取指定难度和索引的拼图切片遮罩SpriteFrame
+     * @param difficulty 拼图难度
+     * @param pieceIndex 拼图切片索引（从0开始）
+     * @returns 对应的遮罩SpriteFrame，如果没有配置则返回null
+     */
+    public static getMaskSpriteFrame(difficulty: PuzzleDifficulty, pieceIndex: number): SpriteFrame | null {
+        const instance = GameDataPuzzle.instance;
+        if (!instance) {
+            console.warn('[GameDataPuzzle] 实例不存在，无法获取遮罩SpriteFrame');
+            return null;
+        }
+
+        let maskArray: SpriteFrame[] = [];
+        
+        switch (difficulty) {
+            case PuzzleDifficulty.EASY:
+                maskArray = instance.easyMaskSpriteFrames;
+                break;
+            case PuzzleDifficulty.MEDIUM:
+                maskArray = instance.mediumMaskSpriteFrames;
+                break;
+            case PuzzleDifficulty.HARD:
+                maskArray = instance.hardMaskSpriteFrames;
+                break;
+            default:
+                console.warn(`[GameDataPuzzle] 未知的难度类型: ${difficulty}`);
+                return null;
+        }
+        
+        if (pieceIndex >= 0 && pieceIndex < maskArray.length) {
+            return maskArray[pieceIndex];
+        } else {
+            console.warn(`[GameDataPuzzle] 遮罩索引 ${pieceIndex} 超出范围，难度 ${PuzzleDifficulty[difficulty]} 遮罩数组长度: ${maskArray.length}`);
+            return null;
+        }
+    }
+
+    /**
+     * 获取指定难度的遮罩数组长度
+     * @param difficulty 拼图难度
+     * @returns 遮罩数组的长度
+     */
+    public static getMaskArrayLength(difficulty: PuzzleDifficulty): number {
+        const instance = GameDataPuzzle.instance;
+        if (!instance) {
+            console.warn('[GameDataPuzzle] 实例不存在，无法获取遮罩数组长度');
+            return 0;
+        }
+
+        switch (difficulty) {
+            case PuzzleDifficulty.EASY:
+                return instance.easyMaskSpriteFrames.length;
+            case PuzzleDifficulty.MEDIUM:
+                return instance.mediumMaskSpriteFrames.length;
+            case PuzzleDifficulty.HARD:
+                return instance.hardMaskSpriteFrames.length;
+            default:
+                return 0;
         }
     }
 
