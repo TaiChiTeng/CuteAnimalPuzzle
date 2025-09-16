@@ -98,7 +98,7 @@
             <key>freeSizeMode</key>
             <enum type="AlgorithmSettings::AlgorithmFreeSizeMode">Best</enum>
             <key>sizeConstraints</key>
-            <enum type="AlgorithmSettings::SizeConstraints">AnySize</enum>
+            <enum type="AlgorithmSettings::SizeConstraints">WordAligned</enum>
             <key>forceSquared</key>
             <false/>
             <key>maxRects</key>
@@ -177,6 +177,7 @@
             <key type="filename">maskPuzzle/mask0110.png</key>
             <key type="filename">maskPuzzle/mask0121.png</key>
             <key type="filename">maskPuzzle/mask0212.png</key>
+            <key type="filename">maskPuzzle/mask0221.png</key>
             <key type="filename">maskPuzzle/mask1012.png</key>
             <key type="filename">maskPuzzle/mask1022.png</key>
             <key type="filename">maskPuzzle/mask1101.png</key>
@@ -186,6 +187,7 @@
             <key type="filename">maskPuzzle/mask1121.png</key>
             <key type="filename">maskPuzzle/mask1212.png</key>
             <key type="filename">maskPuzzle/mask2002.png</key>
+            <key type="filename">maskPuzzle/mask2101.png</key>
             <key type="filename">maskPuzzle/mask2102.png</key>
             <key type="filename">maskPuzzle/mask2111.png</key>
             <key type="filename">maskPuzzle/mask2112.png</key>
@@ -236,6 +238,8 @@
                     <filename>maskPuzzle/mask2200.png</filename>
                     <filename>maskPuzzle/mask2210.png</filename>
                     <filename>maskPuzzle/mask2222.png</filename>
+                    <filename>maskPuzzle/mask2101.png</filename>
+                    <filename>maskPuzzle/mask0221.png</filename>
                 </array>
             </struct>
         </map>
