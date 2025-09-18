@@ -168,6 +168,18 @@ export class PuzzleResourceManager extends Component {
         const pieceWidth = originalRect.width / cols;
         const pieceHeight = originalRect.height / rows;
         
+        // 计算考虑遮罩后的实际切片尺寸
+        // 遮罩比例：128/(128-36) = 128/92 ≈ 1.39
+        const maskRatio = 128 / 92; // 遮罩尺寸与有效显示区域的比例
+        const actualPieceWidth = pieceWidth * maskRatio;
+        const actualPieceHeight = pieceHeight * maskRatio;
+        
+        console.log(`[PuzzleResourceManager] 生成拼图切片 - puzzleId: ${puzzleId}, 规格: ${rows}x${cols}`);
+        console.log(`[PuzzleResourceManager] 原始图片尺寸: ${originalRect.width}x${originalRect.height}`);
+        console.log(`[PuzzleResourceManager] 等分切片尺寸: pieceWidth=${pieceWidth}, pieceHeight=${pieceHeight}`);
+        console.log(`[PuzzleResourceManager] 考虑遮罩后的实际切片尺寸: ${actualPieceWidth}x${actualPieceHeight} (比例: ${maskRatio.toFixed(3)})`);
+        
+        
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
@@ -181,6 +193,16 @@ export class PuzzleResourceManager extends Component {
                 const pieceSpriteFrame = new SpriteFrame();
                 pieceSpriteFrame.texture = texture;
                 pieceSpriteFrame.rect = pieceRect;
+                
+                // 关键修正：设置originalSize为切片的实际尺寸
+                // 这样动态SpriteFrame的尺寸行为就与常规PNG SpriteFrame一致了
+                pieceSpriteFrame.originalSize = new Size(pieceWidth, pieceHeight);
+                
+                // 设置offset为零，确保图片居中显示
+                pieceSpriteFrame.offset = new Vec2(0, 0);
+                
+                // 设置rotated为false（通常切片不需要旋转）
+                pieceSpriteFrame.rotated = false;
                 
                 pieces.push(pieceSpriteFrame);
             }
