@@ -181,74 +181,37 @@ export class PuzzleResourceManager extends Component {
         const expandedHeight = originalRect.height + 2 * decorationRadius;
         console.log(`[PuzzleResourceManager] 扩展后图片尺寸: ${expandedWidth}x${expandedHeight}`);
         
+        // 创建白色背景的扩展纹理
+        const expandedTexture = this.createExpandedTextureWithWhiteBackground(texture as Texture2D, originalRect, expandedWidth, expandedHeight, decorationRadius);
+        
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
-                // 判断切片位置
-                const isTopEdge = (row === 0);
-                const isBottomEdge = (row === rows - 1);
-                const isLeftEdge = (col === 0);
-                const isRightEdge = (col === cols - 1);
-                
-                // 方案2：明确坐标系转换
-                // 步骤1：在扩展图片坐标系（434×434）中计算切片位置
+                // 在扩展纹理中计算切片位置（扩展纹理已包含白色背景）
                 const expandedStartX = col * pieceInterval;
                 const expandedStartY = row * pieceInterval;
                 
-                // 步骤2：转换到原图坐标系（384×384）
-                const originalStartX = expandedStartX - decorationRadius;
-                const originalStartY = expandedStartY - decorationRadius;
-                
-                // 步骤3：映射到纹理坐标
-                let textureX = originalRect.x + originalStartX;
-                let textureY = originalRect.y + originalStartY;
-                let textureWidth = maskSize;
-                let textureHeight = maskSize;
-                
-                // 边缘切片需要特殊处理，确保不超出原始图片边界
-                if (isLeftEdge) {
-                    textureX = originalRect.x;
-                    textureWidth = Math.min(maskSize, originalRect.width);
-                }
-                if (isRightEdge) {
-                    const maxX = originalRect.x + originalRect.width;
-                    textureX = Math.max(originalRect.x, maxX - maskSize);
-                    textureWidth = maxX - textureX;
-                }
-                if (isTopEdge) {
-                    textureY = originalRect.y;
-                    textureHeight = Math.min(maskSize, originalRect.height);
-                }
-                if (isBottomEdge) {
-                    const maxY = originalRect.y + originalRect.height;
-                    textureY = Math.max(originalRect.y, maxY - maskSize);
-                    textureHeight = maxY - textureY;
-                }
-                
-                // 确保纹理区域不超出原始图片边界
-                textureX = Math.max(textureX, originalRect.x);
-                textureY = Math.max(textureY, originalRect.y);
-                textureX = Math.min(textureX, originalRect.x + originalRect.width - 1);
-                textureY = Math.min(textureY, originalRect.y + originalRect.height - 1);
-                textureWidth = Math.min(textureWidth, originalRect.x + originalRect.width - textureX);
-                textureHeight = Math.min(textureHeight, originalRect.y + originalRect.height - textureY);
-                
-                // 创建切片的矩形区域
-                const pieceRect = new Rect(textureX, textureY, textureWidth, textureHeight);
+                // 创建切片的矩形区域（直接在扩展纹理中切片）
+                const pieceRect = new Rect(expandedStartX, expandedStartY, maskSize, maskSize);
                 
                 // 创建新的SpriteFrame
                 const pieceSpriteFrame = new SpriteFrame();
-                pieceSpriteFrame.texture = texture;
+                pieceSpriteFrame.texture = expandedTexture;
                 pieceSpriteFrame.rect = pieceRect;
                 
                 // 设置正确的originalSize和offset
-                pieceSpriteFrame.originalSize = new Size(textureWidth, textureHeight);
-                pieceSpriteFrame.offset = new Vec2(0, 0);
+                pieceSpriteFrame.originalSize = new Size(maskSize, maskSize);
+                pieceSpriteFrame.offset = new Vec2(0, 0); // 不需要offset，因为扩展纹理已经包含白色背景
                 pieceSpriteFrame.rotated = false;
                 
                 pieces.push(pieceSpriteFrame);
                 
                 // 输出调试信息
+                const isTopEdge = (row === 0);
+                const isBottomEdge = (row === rows - 1);
+                const isLeftEdge = (col === 0);
+                const isRightEdge = (col === cols - 1);
+                
                 const positionType = isTopEdge && isLeftEdge ? "左上角" :
                                    isTopEdge && isRightEdge ? "右上角" :
                                    isBottomEdge && isLeftEdge ? "左下角" :
@@ -258,7 +221,7 @@ export class PuzzleResourceManager extends Component {
                                    isLeftEdge ? "左边缘" :
                                    isRightEdge ? "右边缘" : "中心";
                 
-                console.log(`[${row},${col}] ${positionType}: ${textureWidth.toFixed(0)}x${textureHeight.toFixed(0)} at (${textureX.toFixed(0)},${textureY.toFixed(0)})`);
+                console.log(`[${row},${col}] ${positionType}: ${maskSize}x${maskSize} at (${expandedStartX},${expandedStartY})`);
             }
         }
         
@@ -384,6 +347,64 @@ export class PuzzleResourceManager extends Component {
             totalPuzzles: gameData ? gameData.getTotalPuzzleCount() : 0,
             cachedPieces: cachedCount
         };
+    }
+    
+    /**
+     * 创建带白色背景的扩展纹理
+     */
+    private createExpandedTextureWithWhiteBackground(
+        originalTexture: Texture2D, 
+        originalRect: Rect, 
+        expandedWidth: number, 
+        expandedHeight: number, 
+        decorationRadius: number
+    ): Texture2D {
+        try {
+            // 创建Canvas来绘制扩展纹理
+            const canvas = document.createElement('canvas');
+            canvas.width = expandedWidth;
+            canvas.height = expandedHeight;
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+                console.error('[PuzzleResourceManager] 无法创建Canvas上下文');
+                return originalTexture;
+            }
+            
+            // 填充白色背景
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, expandedWidth, expandedHeight);
+            
+            // 获取原始纹理的图像数据
+            const imageAsset = originalTexture.image as any;
+            if (imageAsset && imageAsset.data) {
+                // 将ImageAsset转换为可用的图像源
+                if (imageAsset.data instanceof HTMLCanvasElement) {
+                    ctx.drawImage(
+                        imageAsset.data,
+                        originalRect.x, originalRect.y, originalRect.width, originalRect.height,
+                        decorationRadius, decorationRadius, originalRect.width, originalRect.height
+                    );
+                } else if (imageAsset.data instanceof HTMLImageElement) {
+                    ctx.drawImage(
+                        imageAsset.data,
+                        originalRect.x, originalRect.y, originalRect.width, originalRect.height,
+                        decorationRadius, decorationRadius, originalRect.width, originalRect.height
+                    );
+                }
+            }
+            
+            // 创建新的纹理
+            const expandedTexture = new Texture2D();
+            const newImageAsset = new ImageAsset();
+            newImageAsset.reset(canvas);
+            expandedTexture.image = newImageAsset;
+            
+            return expandedTexture;
+        } catch (error) {
+            console.error('[PuzzleResourceManager] 创建扩展纹理失败:', error);
+            return originalTexture;
+        }
     }
     
     update(deltaTime: number) {
