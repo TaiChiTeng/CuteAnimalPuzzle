@@ -165,46 +165,76 @@ export class PuzzleResourceManager extends Component {
         
         // 获取原始图片的尺寸
         const originalRect = originalSpriteFrame.rect;
-        const pieceWidth = originalRect.width / cols;
-        const pieceHeight = originalRect.height / rows;
-        
         // 计算考虑遮罩后的实际切片尺寸
         // 遮罩比例：128/(128-36) = 128/92 ≈ 1.39
-        const maskRatio = 128 / 92; // 遮罩尺寸与有效显示区域的比例
-        const actualPieceWidth = pieceWidth * maskRatio;
-        const actualPieceHeight = pieceHeight * maskRatio;
-        
+        const maskRatio = 128 / 92;
+
+        const pieceWidth = originalRect.width / cols;
+        const pieceHeight = originalRect.height / rows;    
+              
         console.log(`[PuzzleResourceManager] 生成拼图切片 - puzzleId: ${puzzleId}, 规格: ${rows}x${cols}`);
         console.log(`[PuzzleResourceManager] 原始图片尺寸: ${originalRect.width}x${originalRect.height}`);
         console.log(`[PuzzleResourceManager] 等分切片尺寸: pieceWidth=${pieceWidth}, pieceHeight=${pieceHeight}`);
-        console.log(`[PuzzleResourceManager] 考虑遮罩后的实际切片尺寸: ${actualPieceWidth}x${actualPieceHeight} (比例: ${maskRatio.toFixed(3)})`);
         
+        // 装饰边缘尺寸：(128-92)/2 = 18像素
+        const decorationSize = 18;
         
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
-                const x = originalRect.x + col * pieceWidth;
-                const y = originalRect.y + row * pieceHeight;
+                // 判断切片位置
+                const isTopEdge = (row === 0);
+                const isBottomEdge = (row === rows - 1);
+                const isLeftEdge = (col === 0);
+                const isRightEdge = (col === cols - 1);
+                
+                // 计算基础纹理位置（等分切片的起始位置）
+                const baseX = originalRect.x + col * pieceWidth;
+                const baseY = originalRect.y + row * pieceHeight;
+                
+                // 计算实际需要的纹理尺寸
+                let actualWidth = pieceWidth;
+                let actualHeight = pieceHeight;
+                
+                // 添加内侧装饰边缘
+                if (!isLeftEdge) actualWidth += decorationSize;   // 左侧有装饰
+                if (!isRightEdge) actualWidth += decorationSize;  // 右侧有装饰
+                if (!isTopEdge) actualHeight += decorationSize;   // 上侧有装饰
+                if (!isBottomEdge) actualHeight += decorationSize; // 下侧有装饰
+                
+                // 计算纹理起始位置（需要向外扩展以包含装饰边缘）
+                let textureX = baseX;
+                let textureY = baseY;
+                
+                if (!isLeftEdge) textureX -= decorationSize;  // 向左扩展
+                if (!isTopEdge) textureY -= decorationSize;   // 向上扩展
                 
                 // 创建切片的矩形区域
-                const pieceRect = new Rect(x, y, pieceWidth, pieceHeight);
+                const pieceRect = new Rect(textureX, textureY, actualWidth, actualHeight);
                 
                 // 创建新的SpriteFrame
                 const pieceSpriteFrame = new SpriteFrame();
                 pieceSpriteFrame.texture = texture;
                 pieceSpriteFrame.rect = pieceRect;
                 
-                // 关键修正：设置originalSize为切片的实际尺寸
-                // 这样动态SpriteFrame的尺寸行为就与常规PNG SpriteFrame一致了
-                pieceSpriteFrame.originalSize = new Size(pieceWidth, pieceHeight);
-                
-                // 设置offset为零，确保图片居中显示
+                // 设置正确的originalSize和offset
+                pieceSpriteFrame.originalSize = new Size(actualWidth, actualHeight);
                 pieceSpriteFrame.offset = new Vec2(0, 0);
-                
-                // 设置rotated为false（通常切片不需要旋转）
                 pieceSpriteFrame.rotated = false;
                 
                 pieces.push(pieceSpriteFrame);
+                
+                // 输出调试信息
+                const positionType = isTopEdge && isLeftEdge ? "左上角" :
+                                   isTopEdge && isRightEdge ? "右上角" :
+                                   isBottomEdge && isLeftEdge ? "左下角" :
+                                   isBottomEdge && isRightEdge ? "右下角" :
+                                   isTopEdge ? "上边缘" :
+                                   isBottomEdge ? "下边缘" :
+                                   isLeftEdge ? "左边缘" :
+                                   isRightEdge ? "右边缘" : "中心";
+                
+                console.log(`[${row},${col}] ${positionType}: ${actualWidth.toFixed(0)}x${actualHeight.toFixed(0)} at (${textureX.toFixed(0)},${textureY.toFixed(0)})`);
             }
         }
         
