@@ -190,16 +190,18 @@ export class PuzzleResourceManager extends Component {
                 const isLeftEdge = (col === 0);
                 const isRightEdge = (col === cols - 1);
                 
-                // 计算切片在扩展图片中的起始位置
-                // 扩展图片的原点在(decorationRadius, decorationRadius)
-                // 每个切片按间隔排列
-                const startX = decorationRadius + col * pieceInterval;
-                const startY = decorationRadius + row * pieceInterval;
+                // 方案2：明确坐标系转换
+                // 步骤1：在扩展图片坐标系（434×434）中计算切片位置
+                const expandedStartX = col * pieceInterval;
+                const expandedStartY = row * pieceInterval;
                 
-                // 计算实际纹理区域
-                // 所有切片都是maskSize大小，但需要映射到原始纹理坐标
-                let textureX = originalRect.x + startX - decorationRadius;
-                let textureY = originalRect.y + startY - decorationRadius;
+                // 步骤2：转换到原图坐标系（384×384）
+                const originalStartX = expandedStartX - decorationRadius;
+                const originalStartY = expandedStartY - decorationRadius;
+                
+                // 步骤3：映射到纹理坐标
+                let textureX = originalRect.x + originalStartX;
+                let textureY = originalRect.y + originalStartY;
                 let textureWidth = maskSize;
                 let textureHeight = maskSize;
                 
