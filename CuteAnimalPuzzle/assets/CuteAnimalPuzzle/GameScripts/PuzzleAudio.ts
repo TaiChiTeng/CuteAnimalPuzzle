@@ -58,7 +58,7 @@ export class PuzzleAudio extends Component {
         // 开始播放背景音乐
         this.playBackgroundMusic();
         
-        console.log('[PuzzleAudio] 音频管理器初始化完成');
+        // console.log('[PuzzleAudio] 音频管理器初始化完成');
     }
     
     /**
@@ -66,12 +66,12 @@ export class PuzzleAudio extends Component {
      */
     public playBackgroundMusic(): void {
         if (!this.isSoundEnabled()) {
-            console.log('[PuzzleAudio] 音效已关闭，不播放背景音乐');
+            // console.log('[PuzzleAudio] 音效已关闭，不播放背景音乐');
             return;
         }
         
         if (this.backgroundMusics.length === 0) {
-            console.warn('[PuzzleAudio] 没有配置背景音乐');
+            // console.warn('[PuzzleAudio] 没有配置背景音乐');
             return;
         }
         
@@ -79,7 +79,7 @@ export class PuzzleAudio extends Component {
         if (bgMusic) {
             this.audioMgr.play(bgMusic, 0.5); // 背景音乐音量设为0.5
             this.wasPlaying = true; // 标记为正在播放
-            console.log('[PuzzleAudio] 播放背景音乐:', this.currentBgMusicIndex, '/', this.backgroundMusics.length);
+            // console.log('[PuzzleAudio] 播放背景音乐:', this.currentBgMusicIndex, '/', this.backgroundMusics.length);
         }
     }
     
@@ -89,7 +89,7 @@ export class PuzzleAudio extends Component {
     public stopBackgroundMusic(): void {
         this.audioMgr.stop();
         this.wasPlaying = false;
-        console.log('[PuzzleAudio] 停止背景音乐');
+        // console.log('[PuzzleAudio] 停止背景音乐');
     }
     
     /**
@@ -102,7 +102,7 @@ export class PuzzleAudio extends Component {
         
         this.currentBgMusicIndex = (this.currentBgMusicIndex + 1) % this.backgroundMusics.length;
         this.playBackgroundMusic();
-        console.log('[PuzzleAudio] 手动切换到背景音乐:', this.currentBgMusicIndex);
+        // console.log('[PuzzleAudio] 手动切换到背景音乐:', this.currentBgMusicIndex);
     }
     
     /**
@@ -115,7 +115,7 @@ export class PuzzleAudio extends Component {
         
         this.currentBgMusicIndex = (this.currentBgMusicIndex + 1) % this.backgroundMusics.length;
         this.playBackgroundMusic();
-        console.log('[PuzzleAudio] 自动循环切换到背景音乐:', this.currentBgMusicIndex);
+        // console.log('[PuzzleAudio] 自动循环切换到背景音乐:', this.currentBgMusicIndex);
     }
     
     /**
@@ -123,7 +123,7 @@ export class PuzzleAudio extends Component {
      */
     public setLoopEnabled(enabled: boolean): void {
         this.isLoopEnabled = enabled;
-        console.log('[PuzzleAudio] 循环播放设置:', enabled);
+        // console.log('[PuzzleAudio] 循环播放设置:', enabled);
     }
     
     /**
@@ -143,7 +143,7 @@ export class PuzzleAudio extends Component {
         
         if (this.buttonClickSound) {
             this.audioMgr.playOneShot(this.buttonClickSound, 0.8);
-            console.log('[PuzzleAudio] 播放按钮点击音效');
+            // console.log('[PuzzleAudio] 播放按钮点击音效');
         }
     }
     
@@ -157,7 +157,7 @@ export class PuzzleAudio extends Component {
         
         if (this.puzzlePlaceCorrectSound) {
             this.audioMgr.playOneShot(this.puzzlePlaceCorrectSound, 1.0);
-            console.log('[PuzzleAudio] 播放拼图放入正确位置音效');
+            // console.log('[PuzzleAudio] 播放拼图放入正确位置音效');
         }
     }
     
@@ -171,7 +171,7 @@ export class PuzzleAudio extends Component {
         
         if (this.puzzleCompleteSound) {
             this.audioMgr.playOneShot(this.puzzleCompleteSound, 1.0);
-            console.log('[PuzzleAudio] 播放拼图完成音效');
+            // console.log('[PuzzleAudio] 播放拼图完成音效');
         }
     }
     
@@ -188,7 +188,7 @@ export class PuzzleAudio extends Component {
     public pauseBackgroundMusic(): void {
         this.audioMgr.pause();
         this.wasPlaying = false;
-        console.log('[PuzzleAudio] 暂停背景音乐');
+        // console.log('[PuzzleAudio] 暂停背景音乐');
     }
     
     /**
@@ -198,7 +198,7 @@ export class PuzzleAudio extends Component {
         if (this.isSoundEnabled()) {
             this.audioMgr.resume();
             this.wasPlaying = true;
-            console.log('[PuzzleAudio] 恢复背景音乐');
+            // console.log('[PuzzleAudio] 恢复背景音乐');
         }
     }
     
@@ -213,7 +213,7 @@ export class PuzzleAudio extends Component {
             // 音效关闭，停止背景音乐
             this.stopBackgroundMusic();
         }
-        console.log('[PuzzleAudio] 音效状态变化:', enabled);
+        // console.log('[PuzzleAudio] 音效状态变化:', enabled);
     }
     
     /**
@@ -246,12 +246,12 @@ export class PuzzleAudio extends Component {
         
         // 如果上一帧在播放，但这一帧不在播放了，说明音乐播放结束
         if (this.wasPlaying && !isCurrentlyPlaying) {
-            console.log('[PuzzleAudio] 检测到背景音乐播放结束，准备切换下一首');
             // 延迟1秒后切换，避免频繁切换
             this.scheduleOnce(() => {
                 // 再次确认确实停止了播放
                 if (!audioSource.playing && this.isSoundEnabled()) {
                     this.autoSwitchToNextBackgroundMusic();
+                    // console.log('[PuzzleAudio] 检测到背景音乐播放结束，准备切换下一首');
                 }
             }, this.musicCDTime);
         }

@@ -153,31 +153,33 @@ export class PuzzleResourceManager extends Component {
             return [];
         }
         
-        console.log(`生成拼图切片: ${puzzleId}, 规格: ${rows}x${cols}`);
+        console.log(`[PuzzleResourceManager] 生成拼图切片: ${puzzleId}, 规格: ${rows}x${cols}`);
         
         const pieces: SpriteFrame[] = [];
         const texture = originalSpriteFrame.texture;
         
         if (!texture) {
-            console.error('拼图纹理为空');
+            console.error('[PuzzleResourceManager] 拼图纹理为空');
             return [];
         }
         
         // 获取原始图片的尺寸
         const originalRect = originalSpriteFrame.rect;
-        // 计算考虑遮罩后的实际切片尺寸
-        // 遮罩比例：128/(128-36) = 128/92 ≈ 1.39
-        const maskRatio = 128 / 92;
-
-        const pieceWidth = originalRect.width / cols;
-        const pieceHeight = originalRect.height / rows;    
-              
-        console.log(`[PuzzleResourceManager] 生成拼图切片 - puzzleId: ${puzzleId}, 规格: ${rows}x${cols}`);
-        console.log(`[PuzzleResourceManager] 原始图片尺寸: ${originalRect.width}x${originalRect.height}`);
-        console.log(`[PuzzleResourceManager] 等分切片尺寸: pieceWidth=${pieceWidth}, pieceHeight=${pieceHeight}`);
+        const originalImageSize = Math.max(originalRect.width, originalRect.height); // 假设是正方形图片
+        console.log(`[PuzzleResourceManager] 原始图片尺寸: ${originalRect.width}x${originalRect.height}, 使用尺寸: ${originalImageSize}`);
         
-        // 装饰边缘尺寸：(128-92)/2 = 18像素
-        const decorationSize = 18;
+        // 根据难度和原图尺寸计算Mask尺寸和装饰半径
+        const { maskSize, decorationRadius } = this.calculateMaskSizeAndRadius(rows, cols, originalImageSize);
+        console.log(`[PuzzleResourceManager] Mask尺寸: ${maskSize}, 装饰半径: ${decorationRadius}`);
+        
+        // 计算切片间隔（相邻重叠decorationRadius，所以间隔 = maskSize - 2*decorationRadius）
+        const pieceInterval = maskSize - 2 * decorationRadius;
+        console.log(`[PuzzleResourceManager] 切片间隔: ${pieceInterval}`);
+        
+        // 计算扩展后的图片尺寸（原图 + 2*装饰半径）
+        const expandedWidth = originalRect.width + 2 * decorationRadius;
+        const expandedHeight = originalRect.height + 2 * decorationRadius;
+        console.log(`[PuzzleResourceManager] 扩展后图片尺寸: ${expandedWidth}x${expandedHeight}`);
         
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
@@ -188,29 +190,49 @@ export class PuzzleResourceManager extends Component {
                 const isLeftEdge = (col === 0);
                 const isRightEdge = (col === cols - 1);
                 
-                // 计算基础纹理位置（等分切片的起始位置）
-                const baseX = originalRect.x + col * pieceWidth;
-                const baseY = originalRect.y + row * pieceHeight;
+                // 计算切片在扩展图片中的起始位置
+                // 扩展图片的原点在(decorationRadius, decorationRadius)
+                // 每个切片按间隔排列
+                const startX = decorationRadius + col * pieceInterval;
+                const startY = decorationRadius + row * pieceInterval;
                 
-                // 计算实际需要的纹理尺寸
-                let actualWidth = pieceWidth;
-                let actualHeight = pieceHeight;
+                // 计算实际纹理区域
+                // 所有切片都是maskSize大小，但需要映射到原始纹理坐标
+                let textureX = originalRect.x + startX - decorationRadius;
+                let textureY = originalRect.y + startY - decorationRadius;
+                let textureWidth = maskSize;
+                let textureHeight = maskSize;
                 
-                // 添加内侧装饰边缘
-                if (!isLeftEdge) actualWidth += decorationSize;   // 左侧有装饰
-                if (!isRightEdge) actualWidth += decorationSize;  // 右侧有装饰
-                if (!isTopEdge) actualHeight += decorationSize;   // 上侧有装饰
-                if (!isBottomEdge) actualHeight += decorationSize; // 下侧有装饰
+                // 边缘切片需要特殊处理，确保不超出原始图片边界
+                if (isLeftEdge) {
+                    textureX = originalRect.x;
+                    textureWidth = Math.min(maskSize, originalRect.width);
+                }
+                if (isRightEdge) {
+                    const maxX = originalRect.x + originalRect.width;
+                    textureX = Math.max(originalRect.x, maxX - maskSize);
+                    textureWidth = maxX - textureX;
+                }
+                if (isTopEdge) {
+                    textureY = originalRect.y;
+                    textureHeight = Math.min(maskSize, originalRect.height);
+                }
+                if (isBottomEdge) {
+                    const maxY = originalRect.y + originalRect.height;
+                    textureY = Math.max(originalRect.y, maxY - maskSize);
+                    textureHeight = maxY - textureY;
+                }
                 
-                // 计算纹理起始位置（需要向外扩展以包含装饰边缘）
-                let textureX = baseX;
-                let textureY = baseY;
-                
-                if (!isLeftEdge) textureX -= decorationSize;  // 向左扩展
-                if (!isTopEdge) textureY -= decorationSize;   // 向上扩展
+                // 确保纹理区域不超出原始图片边界
+                textureX = Math.max(textureX, originalRect.x);
+                textureY = Math.max(textureY, originalRect.y);
+                textureX = Math.min(textureX, originalRect.x + originalRect.width - 1);
+                textureY = Math.min(textureY, originalRect.y + originalRect.height - 1);
+                textureWidth = Math.min(textureWidth, originalRect.x + originalRect.width - textureX);
+                textureHeight = Math.min(textureHeight, originalRect.y + originalRect.height - textureY);
                 
                 // 创建切片的矩形区域
-                const pieceRect = new Rect(textureX, textureY, actualWidth, actualHeight);
+                const pieceRect = new Rect(textureX, textureY, textureWidth, textureHeight);
                 
                 // 创建新的SpriteFrame
                 const pieceSpriteFrame = new SpriteFrame();
@@ -218,7 +240,7 @@ export class PuzzleResourceManager extends Component {
                 pieceSpriteFrame.rect = pieceRect;
                 
                 // 设置正确的originalSize和offset
-                pieceSpriteFrame.originalSize = new Size(actualWidth, actualHeight);
+                pieceSpriteFrame.originalSize = new Size(textureWidth, textureHeight);
                 pieceSpriteFrame.offset = new Vec2(0, 0);
                 pieceSpriteFrame.rotated = false;
                 
@@ -234,15 +256,56 @@ export class PuzzleResourceManager extends Component {
                                    isLeftEdge ? "左边缘" :
                                    isRightEdge ? "右边缘" : "中心";
                 
-                console.log(`[${row},${col}] ${positionType}: ${actualWidth.toFixed(0)}x${actualHeight.toFixed(0)} at (${textureX.toFixed(0)},${textureY.toFixed(0)})`);
+                console.log(`[${row},${col}] ${positionType}: ${textureWidth.toFixed(0)}x${textureHeight.toFixed(0)} at (${textureX.toFixed(0)},${textureY.toFixed(0)})`);
             }
         }
         
         // 缓存生成的切片
         puzzleCache.set(cacheKey, pieces);
         
-        console.log(`成功生成 ${pieces.length} 个拼图切片`);
+        console.log(`[PuzzleResourceManager] 成功生成 ${pieces.length} 个拼图切片`);
         return pieces;
+    }
+    
+    /**
+     * 根据拼图难度和原图尺寸计算Mask尺寸和装饰半径
+     * 基于第2版.md文档的基准数据进行比例缩放
+     * @param rows 行数
+     * @param cols 列数
+     * @param originalImageSize 原图尺寸（正方形图片的边长）
+     * @returns Mask尺寸和装饰半径（原图坐标系）
+     */
+    private calculateMaskSizeAndRadius(rows: number, cols: number, originalImageSize: number): { maskSize: number, decorationRadius: number } {
+        // 基准数据（来自第2版.md文档）
+        const baseImageSize = 384;      // 基准图片尺寸
+        const baseMaskSize = 178;       // 基准Mask尺寸（3x3时）
+        const baseDecorationRadius = 25; // 基准装饰半径（3x3时）
+        const baseGridSize = 3;         // 基准难度（3x3）
+        
+        // 计算图片尺寸缩放比例
+        const imageSizeRatio = originalImageSize / baseImageSize;
+        
+        // 计算难度调整比例
+        const gridSize = Math.max(rows, cols);
+        const difficultyRatio = baseGridSize / gridSize;
+        
+        // 计算实际值（先按图片尺寸缩放，再按难度调整）
+        const actualMaskSize = Math.round(baseMaskSize * imageSizeRatio * difficultyRatio);
+        const actualDecorationRadius = Math.round(baseDecorationRadius * imageSizeRatio * difficultyRatio);
+        
+        console.log(`[PuzzleResourceManager] 基准数据计算 - 原图:${originalImageSize}, 基准:${baseImageSize}, 图片比例:${imageSizeRatio.toFixed(3)}`);
+        console.log(`[PuzzleResourceManager] 难度调整 - 当前:${gridSize}x${gridSize}, 基准:${baseGridSize}x${baseGridSize}, 难度比例:${difficultyRatio.toFixed(3)}`);
+        console.log(`[PuzzleResourceManager] 最终结果 - Mask尺寸:${actualMaskSize}, 装饰半径:${actualDecorationRadius}`);
+        
+        // 验证660x660图片3x3拼图的计算结果
+        if (originalImageSize === 660 && gridSize === 3) {
+            console.log(`[PuzzleResourceManager] 验证660x660-3x3 - 期望Mask:306, 实际:${actualMaskSize}, 期望半径:43, 实际:${actualDecorationRadius}`);
+        }
+        
+        return { 
+            maskSize: actualMaskSize, 
+            decorationRadius: actualDecorationRadius 
+        };
     }
     
     /**
