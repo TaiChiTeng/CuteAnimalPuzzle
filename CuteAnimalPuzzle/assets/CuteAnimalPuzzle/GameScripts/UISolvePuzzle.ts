@@ -1726,12 +1726,44 @@ export class UISolvePuzzle extends Component {
     }
 
     /**
-     * 设置拼图切片遮罩
+     * 设置拼图切片遮罩（修复后 - 与其他预制体保持一致）
      */
     private setupPieceMask(puzzlePiece: PuzzlePiece, index: number): void {
         const maskSpriteFrame = GameDataPuzzle.getMaskSpriteFrame(this.currentDifficulty, index);
         if (maskSpriteFrame) {
-            puzzlePiece.setMask(maskSpriteFrame);
+            // 修复：直接设置到Mask节点的Sprite组件，而不是使用PuzzlePiece.setMask方法
+            const maskNode = puzzlePiece.node.getChildByName('Mask');
+            if (maskNode) {
+                const maskSprite = maskNode.getComponent(Sprite);
+                if (maskSprite) {
+                    maskSprite.spriteFrame = maskSpriteFrame;
+                    
+                    // 设置Mask节点的尺寸（与其他预制体保持一致）
+                    const sizeInfo = this.getCurrentPuzzlePieceSize();
+                    const maskUITransform = maskNode.getComponent(UITransform);
+                    if (maskUITransform && sizeInfo) {
+                        const maskSize = this.calculateDynamicMaskSize(sizeInfo.rows, sizeInfo.cols);
+                        maskUITransform.setContentSize(maskSize, maskSize);
+                        
+                        // 确保sprIcon尺寸与Mask一致
+                        const sprIconNode = maskNode.getChildByName('sprIcon');
+                        if (sprIconNode) {
+                            const sprIconUITransform = sprIconNode.getComponent(UITransform);
+                            if (sprIconUITransform) {
+                                sprIconUITransform.setContentSize(maskSize, maskSize);
+                            }
+                        }
+                    }
+                    
+                    console.log(`[UISolvePuzzle] 为拼图切片${index}设置了遮罩（使用Sprite组件，与其他预制体一致）`);
+                } else {
+                    console.warn(`[UISolvePuzzle] 拼图切片${index}的Mask节点没有Sprite组件`);
+                }
+            } else {
+                console.warn(`[UISolvePuzzle] 拼图切片${index}没有找到Mask子节点`);
+            }
+        } else {
+            console.warn(`[UISolvePuzzle] 无法获取拼图切片${index}的遮罩SpriteFrame`);
         }
     }
 
