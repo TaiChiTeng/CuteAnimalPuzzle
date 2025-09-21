@@ -35,10 +35,12 @@ export class UISolvePuzzle extends Component {
     public pieceContent: Node = null;
 
     // 从底部列表拖拽出来，未正确放入网格的拼图切片预制体
+    // 预制体配置是：itemDragPiece
     @property(Prefab)
     public dragPiecePrefab: Prefab = null;
 
     // 底部列表的拼图切片预制体
+    // 预制体配置是：itemPuzzlePiece
     @property(Prefab)
     public puzzlePiecePrefab: Prefab = null;
 
@@ -857,14 +859,37 @@ export class UISolvePuzzle extends Component {
             dragTransform.setContentSize(sideLength, sideLength);
         }
         
-        // 设置拖拽预制体的图片（复制dragPieceNode的图片）
-        const dragPieceSprIconNode = dragPieceNode.getChildByName('sprIcon');
-        const currentDragSprIconNode = this.currentDragPiece.getChildByName('sprIcon');
-        if (dragPieceSprIconNode && currentDragSprIconNode) {
-            const dragPieceSprite = dragPieceSprIconNode.getComponent(Sprite);
-            const currentDragSprite = currentDragSprIconNode.getComponent(Sprite);
-            if (dragPieceSprite && currentDragSprite && dragPieceSprite.spriteFrame) {
-                currentDragSprite.spriteFrame = dragPieceSprite.spriteFrame;
+        // 使用统一的图片设置逻辑，支持基于遮罩的拼图切片形状
+        this.setupPieceSprite(this.currentDragPiece, pieceIndex);
+        
+        // 设置拖拽预制体的遮罩（支持基于遮罩的拼图切片形状）
+        const maskSpriteFrame = GameDataPuzzle.getMaskSpriteFrame(this.currentDifficulty, pieceIndex);
+        if (maskSpriteFrame) {
+            const maskNode = this.currentDragPiece.getChildByName('Mask');
+            if (maskNode) {
+                const maskSprite = maskNode.getComponent(Sprite);
+                if (maskSprite) {
+                    maskSprite.spriteFrame = maskSpriteFrame;
+                    
+                    // 设置Mask节点的尺寸
+                    const sizeInfo = this.getCurrentPuzzlePieceSize();
+                    const maskUITransform = maskNode.getComponent(UITransform);
+                    if (maskUITransform && sizeInfo) {
+                        const maskSize = this.calculateDynamicMaskSize(sizeInfo.rows, sizeInfo.cols);
+                        maskUITransform.setContentSize(maskSize, maskSize);
+                        
+                        // 确保sprIcon尺寸与Mask一致
+                        const sprIconNode = maskNode.getChildByName('sprIcon');
+                        if (sprIconNode) {
+                            const sprIconUITransform = sprIconNode.getComponent(UITransform);
+                            if (sprIconUITransform) {
+                                sprIconUITransform.setContentSize(maskSize, maskSize);
+                            }
+                        }
+                    }
+                    
+                    console.log(`[UISolvePuzzle] 为拖拽预制体设置了遮罩，切片索引：${pieceIndex}`);
+                }
             }
         }
         
@@ -887,7 +912,7 @@ export class UISolvePuzzle extends Component {
         // 标记拖拽来源为dragPieceSlots数组
         this.isDragFromPuzzleList = false;
         
-        console.log(`[UISolvePuzzle] 从dragPieceSlots切片${pieceIndex}创建了拖拽预制体`);
+        console.log(`[UISolvePuzzle] 从dragPieceSlots切片${pieceIndex}创建了拖拽预制体，支持基于遮罩的拼图切片形状`);
     }
     
     /**
@@ -929,28 +954,36 @@ export class UISolvePuzzle extends Component {
             uiTransform.setContentSize(pieceSize, pieceSize);
         }
         
-        // 设置拖拽预制体图片（与被拖拽的拼图切片相同）
-        const sprIconNode = this.currentDragPiece.getChildByName('sprIcon');
-        const resourceManager = PuzzleResourceManager.instance;
+        // 使用统一的图片设置逻辑，支持基于遮罩的拼图切片形状
+        this.setupPieceSprite(this.currentDragPiece, puzzlePiece.pieceIndex);
         
-        if (sprIconNode && resourceManager && puzzlePiece) {
-            const sprite = sprIconNode.getComponent(Sprite);
-            if (sprite) {
-                // 获取被拖拽拼图切片的索引
-                const pieceIndex = puzzlePiece.pieceIndex;
-                
-                // 获取对应的图片
-                const pieceSpriteFrame = resourceManager.getPuzzlePiece(
-                    this.currentPuzzleId, 
-                    this.gridRows, 
-                    this.gridCols, 
-                    pieceIndex
-                );
-                
-                if (pieceSpriteFrame) {
-                    sprite.spriteFrame = pieceSpriteFrame;
-                } else {
-                    console.warn(`[UISolvePuzzle] 无法获取拖拽预制体的图片，索引：${pieceIndex}`);
+        // 设置拖拽预制体的遮罩（支持基于遮罩的拼图切片形状）
+        const maskSpriteFrame = GameDataPuzzle.getMaskSpriteFrame(this.currentDifficulty, puzzlePiece.pieceIndex);
+        if (maskSpriteFrame) {
+            const maskNode = this.currentDragPiece.getChildByName('Mask');
+            if (maskNode) {
+                const maskSprite = maskNode.getComponent(Sprite);
+                if (maskSprite) {
+                    maskSprite.spriteFrame = maskSpriteFrame;
+                    
+                    // 设置Mask节点的尺寸
+                    const sizeInfo = this.getCurrentPuzzlePieceSize();
+                    const maskUITransform = maskNode.getComponent(UITransform);
+                    if (maskUITransform && sizeInfo) {
+                        const maskSize = this.calculateDynamicMaskSize(sizeInfo.rows, sizeInfo.cols);
+                        maskUITransform.setContentSize(maskSize, maskSize);
+                        
+                        // 确保sprIcon尺寸与Mask一致
+                        const sprIconNode = maskNode.getChildByName('sprIcon');
+                        if (sprIconNode) {
+                            const sprIconUITransform = sprIconNode.getComponent(UITransform);
+                            if (sprIconUITransform) {
+                                sprIconUITransform.setContentSize(maskSize, maskSize);
+                            }
+                        }
+                    }
+                    
+                    console.log(`[UISolvePuzzle] 为拖拽预制体设置了遮罩，切片索引：${puzzlePiece.pieceIndex}`);
                 }
             }
         }
@@ -961,7 +994,7 @@ export class UISolvePuzzle extends Component {
         // 设置拖拽预制体位置
         this.updateDragPiecePosition(x, y);
         
-        console.log(`[UISolvePuzzle] 从拼图切片${puzzlePiece.pieceIndex}创建了拖拽预制体，尺寸：${uiTransform ? uiTransform.contentSize.width + 'x' + uiTransform.contentSize.height : '未知'}`);
+        console.log(`[UISolvePuzzle] 从拼图切片${puzzlePiece.pieceIndex}创建了拖拽预制体，支持基于遮罩的拼图切片形状，尺寸：${uiTransform ? uiTransform.contentSize.width + 'x' + uiTransform.contentSize.height : '未知'}`);
     }
     
     /**
@@ -1326,23 +1359,36 @@ export class UISolvePuzzle extends Component {
         const originalPos = this.currentDragPiece.getPosition();
         unplacedPiece.setPosition(originalPos);
         
-        // 设置图片（与被拖拽的拼图切片相同）
-        const sprIconNode = unplacedPiece.getChildByName('sprIcon');
-        const resourceManager = PuzzleResourceManager.instance;
+        // 使用统一的图片设置逻辑，支持基于遮罩的拼图切片形状
+        this.setupPieceSprite(unplacedPiece, this.currentDraggedPuzzlePiece.pieceIndex);
         
-        if (sprIconNode && resourceManager && this.currentDraggedPuzzlePiece) {
-            const sprite = sprIconNode.getComponent(Sprite);
-            if (sprite) {
-                const pieceIndex = this.currentDraggedPuzzlePiece.pieceIndex;
-                const pieceSpriteFrame = resourceManager.getPuzzlePiece(
-                    this.currentPuzzleId, 
-                    this.gridRows, 
-                    this.gridCols, 
-                    pieceIndex
-                );
-                
-                if (pieceSpriteFrame) {
-                    sprite.spriteFrame = pieceSpriteFrame;
+        // 设置未拼好切片的遮罩（支持基于遮罩的拼图切片形状）
+        const maskSpriteFrame = GameDataPuzzle.getMaskSpriteFrame(this.currentDifficulty, this.currentDraggedPuzzlePiece.pieceIndex);
+        if (maskSpriteFrame) {
+            const maskNode = unplacedPiece.getChildByName('Mask');
+            if (maskNode) {
+                const maskSprite = maskNode.getComponent(Sprite);
+                if (maskSprite) {
+                    maskSprite.spriteFrame = maskSpriteFrame;
+                    
+                    // 设置Mask节点的尺寸
+                    const sizeInfo = this.getCurrentPuzzlePieceSize();
+                    const maskUITransform = maskNode.getComponent(UITransform);
+                    if (maskUITransform && sizeInfo) {
+                        const maskSize = this.calculateDynamicMaskSize(sizeInfo.rows, sizeInfo.cols);
+                        maskUITransform.setContentSize(maskSize, maskSize);
+                        
+                        // 确保sprIcon尺寸与Mask一致
+                        const sprIconNode = maskNode.getChildByName('sprIcon');
+                        if (sprIconNode) {
+                            const sprIconUITransform = sprIconNode.getComponent(UITransform);
+                            if (sprIconUITransform) {
+                                sprIconUITransform.setContentSize(maskSize, maskSize);
+                            }
+                        }
+                    }
+                    
+                    console.log(`[UISolvePuzzle] 为未拼好切片设置了遮罩，切片索引：${this.currentDraggedPuzzlePiece.pieceIndex}`);
                 }
             }
         }
@@ -1356,6 +1402,7 @@ export class UISolvePuzzle extends Component {
         // 安全存储到dragPieceSlots数组
         this.safeAddToDragPieceSlots(unplacedPiece);
         
+        console.log(`[UISolvePuzzle] 创建了未拼好切片，支持基于遮罩的拼图切片形状，切片索引：${this.currentDraggedPuzzlePiece.pieceIndex}`);
     }
     
     /**
@@ -1389,8 +1436,13 @@ export class UISolvePuzzle extends Component {
                 puzzlePieceComponent.setPieceInfo(pieceIndex, correctRow, correctCol);
             }
             
-            // 设置切片图片（复制原dragPieceSlots节点的图片）
+            // 设置切片图片和遮罩（支持基于遮罩的拼图切片形状）
             this.setupPieceSprite(newPieceNode, this.currentDraggedPuzzlePiece.pieceIndex);
+            
+            // 设置新创建的PuzzlePiece节点的遮罩
+            if (puzzlePieceComponent) {
+                this.setupPieceMask(puzzlePieceComponent, this.currentDraggedPuzzlePiece.pieceIndex);
+            }
             
             // 销毁原dragPieceSlots节点
             this.currentDraggedPuzzlePiece.node.destroy();

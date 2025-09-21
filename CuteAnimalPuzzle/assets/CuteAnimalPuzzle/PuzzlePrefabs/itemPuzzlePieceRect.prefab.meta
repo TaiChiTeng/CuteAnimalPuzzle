@@ -2,12 +2,12 @@
   "ver": "1.1.50",
   "importer": "prefab",
   "imported": true,
-  "uuid": "c0662987-7e60-4479-8f12-4ffa04fa50bc",
+  "uuid": "3a5c9628-d6fe-4cbe-baf2-e83284122c2e",
   "files": [
     ".json"
   ],
   "subMetas": {},
   "userData": {
-    "syncNodeName": "itemPuzzlePiece"
+    "syncNodeName": "itemPuzzlePieceRect"
   }
 }

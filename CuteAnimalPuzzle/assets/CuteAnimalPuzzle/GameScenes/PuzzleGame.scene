@@ -10891,11 +10891,11 @@
       "__id__": 265
     },
     "dragPiecePrefab": {
-      "__uuid__": "4cc4a35d-790b-4ac8-856e-cd81ccf197ea",
+      "__uuid__": "64b53ff1-35c6-4fb3-86da-0b07796df343",
       "__expectedType__": "cc.Prefab"
     },
     "puzzlePiecePrefab": {
-      "__uuid__": "5dcd30c5-4742-42e6-8492-1b8d54c0f1b5",
+      "__uuid__": "c0662987-7e60-4479-8f12-4ffa04fa50bc",
       "__expectedType__": "cc.Prefab"
     },
     "gridPieceAnswerPrefab": {
