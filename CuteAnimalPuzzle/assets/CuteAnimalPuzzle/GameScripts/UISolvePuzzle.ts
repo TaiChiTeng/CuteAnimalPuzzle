@@ -116,32 +116,32 @@ export class UISolvePuzzle extends Component {
         // 基于文档中384x384图片3x3难度的拼图切片尺寸（直接使用，不计算）
         let baseSprIconWidth: number, baseSprIconHeight: number;
         let baseOffsetX: number, baseOffsetY: number;
-        
+        let deltaDis = 25/2;
         if (isCorner) {
             if (isTopEdge && isLeftEdge) {
                 // 左上角：拼图切片(0,0)~(153,153) → sprIcon尺寸153x153，坐标(25,-25)
                 baseSprIconWidth = 153;
                 baseSprIconHeight = 153;
-                baseOffsetX = 25;
-                baseOffsetY = -25;
+                baseOffsetX = deltaDis;
+                baseOffsetY = -deltaDis;
             } else if (isTopEdge && isRightEdge) {
                 // 右上角：拼图切片(231,0)~(153,153) → sprIcon尺寸153x153，坐标(-25,-25)
                 baseSprIconWidth = 153;
                 baseSprIconHeight = 153;
-                baseOffsetX = -25;
-                baseOffsetY = -25;
+                baseOffsetX = -deltaDis;
+                baseOffsetY = -deltaDis;
             } else if (isBottomEdge && isLeftEdge) {
                 // 左下角：拼图切片(0,231)~(153,153) → sprIcon尺寸153x153，坐标(25,25)
                 baseSprIconWidth = 153;
                 baseSprIconHeight = 153;
-                baseOffsetX = 25;
-                baseOffsetY = 25;
+                baseOffsetX = deltaDis;
+                baseOffsetY = deltaDis;
             } else {
                 // 右下角：拼图切片(231,231)~(153,153) → sprIcon尺寸153x153，坐标(-25,25)
                 baseSprIconWidth = 153;
                 baseSprIconHeight = 153;
-                baseOffsetX = -25;
-                baseOffsetY = 25;
+                baseOffsetX = -deltaDis;
+                baseOffsetY = deltaDis;
             }
         } else if (isEdge) {
             if (isTopEdge) {
@@ -149,24 +149,24 @@ export class UISolvePuzzle extends Component {
                 baseSprIconWidth = 178;
                 baseSprIconHeight = 153;
                 baseOffsetX = 0;
-                baseOffsetY = -25;
+                baseOffsetY = -deltaDis;
             } else if (isBottomEdge) {
                 // 下边缘：拼图切片(103,231)~(178,153) → sprIcon尺寸178x153，坐标(0,25)
                 baseSprIconWidth = 178;
                 baseSprIconHeight = 153;
                 baseOffsetX = 0;
-                baseOffsetY = 25;
+                baseOffsetY = deltaDis;
             } else if (isLeftEdge) {
                 // 左边缘：拼图切片(0,103)~(153,178) → sprIcon尺寸153x178，坐标(25,0)
                 baseSprIconWidth = 153;
                 baseSprIconHeight = 178;
-                baseOffsetX = 25;
+                baseOffsetX = deltaDis;
                 baseOffsetY = 0;
             } else {
                 // 右边缘：拼图切片(231,103)~(153,178) → sprIcon尺寸153x178，坐标(-25,0)
                 baseSprIconWidth = 153;
                 baseSprIconHeight = 178;
-                baseOffsetX = -25;
+                baseOffsetX = -deltaDis;
                 baseOffsetY = 0;
             }
         } else {
@@ -1239,7 +1239,7 @@ export class UISolvePuzzle extends Component {
         
         // 设置答案切片的位置与槽位一致
         const slotWorldPos = slotNode.getWorldPosition();
-        // const puzzleAnswersWorldPos = this.puzzleAnswers.getWorldPosition();
+        const puzzleAnswersWorldPos = this.puzzleAnswers.getWorldPosition();
         const localPos = new Vec3();
         this.puzzleAnswers.getComponent(UITransform).convertToNodeSpaceAR(slotWorldPos, localPos);
         answerPiece.setPosition(localPos);

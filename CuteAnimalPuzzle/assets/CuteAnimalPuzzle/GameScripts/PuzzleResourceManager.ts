@@ -132,7 +132,9 @@ export class PuzzleResourceManager extends Component {
     }
     
     /**
-     * 生成拼图切片 - 使用SpriteFrame.createWithImage方案
+     * 生成拼图切片 - 使用文档中的精确坐标数据
+     * 拼图切片的本质是：每个切片都要为相邻切片的"凸起"预留空间，同时自己的"凸起"要延伸到相邻切片的区域
+     * 基于《第2版.md》文档中的精确坐标数据，不使用算法推导
      */
     public generatePuzzlePieces(puzzleId: number, rows: number, cols: number): SpriteFrame[] {
         // 检查缓存
@@ -169,22 +171,45 @@ export class PuzzleResourceManager extends Component {
         const textureHeight = originalRect.height;
         console.log(`[PuzzleResourceManager] 原始图片尺寸: ${textureWidth}x${textureHeight}`);
         
-        // 基于用户例子的正确计算方法
-        // 384x384图片，3x3难度：maskSize=178, decorationRadius=25, pieceInterval=103
-        // 其他尺寸图片需要按比例缩放
-        const scale = textureWidth / 384; // 以384为基准进行缩放
-        const maskSize = Math.round(178 * scale); // 遮罩尺寸
-        const decorationRadius = Math.round(25 * scale); // 半圆半径
-        const pieceInterval = Math.round(103 * scale); // 切片间隔
+        // 基于文档的精确数据：以384x384为基准，计算缩放比例
+        const scale = textureWidth / 384;
         
-        // 不同难度的间隔调整
-        const adjustedInterval = Math.round(pieceInterval * (3 / Math.max(rows, cols)));
-        const adjustedMaskSize = Math.round(maskSize * (3 / Math.max(rows, cols)));
-        const adjustedDecorationRadius = Math.round(decorationRadius * (3 / Math.max(rows, cols)));
+        // 基础参数（基于384x384图片的标准值）
+        const baseMaskSize = 178;
+        const baseDecorationRadius = 25;
         
-        console.log(`[PuzzleResourceManager] 生成${Math.max(rows, cols)}x${Math.max(rows, cols)}拼图切片`);
-        console.log(`[PuzzleResourceManager] 图片尺寸: ${textureWidth}x${textureHeight}, 缩放比例: ${scale}`);
-        console.log(`[PuzzleResourceManager] maskSize: ${adjustedMaskSize}, decorationRadius: ${adjustedDecorationRadius}, pieceInterval: ${adjustedInterval}`);
+        // 文档中的精确坐标数据（基于384x384图片）
+        const baseCoordinatesData: { [key: number]: number[] } = {
+            3: [0, 103, 231],  // 3x3难度的精确坐标
+            4: [0, 77, 154, 231],  // 4x4难度（推算）
+            5: [0, 62, 124, 186, 248]  // 5x5难度（推算）
+        };
+        
+        const difficulty = Math.max(rows, cols);
+        const baseCoordinates = baseCoordinatesData[difficulty];
+        
+        if (!baseCoordinates) {
+            console.error(`[PuzzleResourceManager] 不支持的难度: ${difficulty}x${difficulty}`);
+            return [];
+        }
+        
+        // 应用缩放到所有参数
+        const maskSize = Math.round(baseMaskSize * scale);
+        const decorationRadius = Math.round(baseDecorationRadius * scale);
+        
+        // 缩放坐标数组
+        const coordinates = baseCoordinates.map(coord => Math.round(coord * scale));
+        
+        console.log(`[PuzzleResourceManager] 难度: ${difficulty}x${difficulty}, 缩放比例: ${scale.toFixed(3)}`);
+        console.log(`[PuzzleResourceManager] maskSize: ${maskSize}, decorationRadius: ${decorationRadius}`);
+        console.log(`[PuzzleResourceManager] 基础坐标: [${baseCoordinates.join(', ')}]`);
+        console.log(`[PuzzleResourceManager] 缩放后坐标: [${coordinates.join(', ')}]`);
+        
+        // 计算尺寸数组（边缘切片和中间切片的尺寸不同）
+        const edgeSize = maskSize - decorationRadius;  // 边缘切片尺寸 = 178 - 25 = 153
+        const centerSize = maskSize;                   // 中间切片尺寸 = 178
+        
+        console.log(`[PuzzleResourceManager] 边缘切片尺寸: ${edgeSize}, 中间切片尺寸: ${centerSize}`);
         
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
@@ -197,43 +222,42 @@ export class PuzzleResourceManager extends Component {
                 const isCorner = (isTopEdge || isBottomEdge) && (isLeftEdge || isRightEdge);
                 const isEdge = isTopEdge || isBottomEdge || isLeftEdge || isRightEdge;
                 
-                // 根据用户例子的规律计算切片位置和尺寸
-                let rectX: number, rectY: number, rectWidth: number, rectHeight: number;
+                // 使用坐标数组获取精确位置
+                const rectX = coordinates[col];
+                const rectY = coordinates[row];
                 
-                // 计算起始坐标
-                rectX = col * adjustedInterval;
-                rectY = row * adjustedInterval;
+                // 根据切片类型计算尺寸
+                let rectWidth: number, rectHeight: number;
                 
-                // 计算尺寸（关键：不同类型切片尺寸不同）
                 if (isCorner) {
-                    // 角落切片：两个方向都减去装饰半径
-                    rectWidth = adjustedMaskSize - adjustedDecorationRadius;
-                    rectHeight = adjustedMaskSize - adjustedDecorationRadius;
+                    // 角落切片：两个方向都是边缘尺寸
+                    rectWidth = edgeSize;
+                    rectHeight = edgeSize;
                 } else if (isEdge) {
                     if (isTopEdge || isBottomEdge) {
-                        // 上下边缘：宽度完整，高度减去装饰半径
-                        rectWidth = adjustedMaskSize;
-                        rectHeight = adjustedMaskSize - adjustedDecorationRadius;
+                        // 上下边缘：宽度为中间尺寸，高度为边缘尺寸
+                        rectWidth = centerSize;
+                        rectHeight = edgeSize;
                     } else {
-                        // 左右边缘：高度完整，宽度减去装饰半径
-                        rectWidth = adjustedMaskSize - adjustedDecorationRadius;
-                        rectHeight = adjustedMaskSize;
+                        // 左右边缘：宽度为边缘尺寸，高度为中间尺寸
+                        rectWidth = edgeSize;
+                        rectHeight = centerSize;
                     }
                 } else {
-                    // 中间切片：完整尺寸
-                    rectWidth = adjustedMaskSize;
-                    rectHeight = adjustedMaskSize;
+                    // 中间切片：两个方向都是中间尺寸
+                    rectWidth = centerSize;
+                    rectHeight = centerSize;
                 }
                 
                 console.log(`[PuzzleResourceManager] 切片[${row},${col}] 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}`);
                 console.log(`[PuzzleResourceManager] rect: (${rectX},${rectY}) ${rectWidth}x${rectHeight}`);
                 
-                // 创建SpriteFrame（不需要offset，直接使用rect）
+                // 创建SpriteFrame
                 const spriteFrame = new SpriteFrame();
                 spriteFrame.texture = texture;
                 spriteFrame.rect = new Rect(rectX, rectY, rectWidth, rectHeight);
-                spriteFrame.offset = new Vec2(0, 0); // 不使用offset
-                spriteFrame.originalSize = new Size(rectWidth, rectHeight); // 使用实际尺寸
+                spriteFrame.offset = new Vec2(0, 0);
+                spriteFrame.originalSize = new Size(rectWidth, rectHeight);
                 
                 pieces.push(spriteFrame);
             }
@@ -246,46 +270,6 @@ export class PuzzleResourceManager extends Component {
         return pieces;
     }
     
-    /**
-     * 根据拼图难度和原图尺寸计算Mask尺寸和装饰半径
-     * 基于第2版.md文档的基准数据进行比例缩放
-     * @param rows 行数
-     * @param cols 列数
-     * @param originalImageSize 原图尺寸（正方形图片的边长）
-     * @returns Mask尺寸和装饰半径（原图坐标系）
-     */
-    private calculateMaskSizeAndRadius(rows: number, cols: number, originalImageSize: number): { maskSize: number, decorationRadius: number } {
-        // 基准数据（来自第2版.md文档）
-        const baseImageSize = 384;      // 基准图片尺寸
-        const baseMaskSize = 178;       // 基准Mask尺寸（3x3时）
-        const baseDecorationRadius = 25; // 基准装饰半径（3x3时）
-        const baseGridSize = 3;         // 基准难度（3x3）
-        
-        // 计算图片尺寸缩放比例
-        const imageSizeRatio = originalImageSize / baseImageSize;
-        
-        // 计算难度调整比例
-        const gridSize = Math.max(rows, cols);
-        const difficultyRatio = baseGridSize / gridSize;
-        
-        // 计算实际值（先按图片尺寸缩放，再按难度调整）
-        const actualMaskSize = Math.round(baseMaskSize * imageSizeRatio * difficultyRatio);
-        const actualDecorationRadius = Math.round(baseDecorationRadius * imageSizeRatio * difficultyRatio);
-        
-        console.log(`[PuzzleResourceManager] 基准数据计算 - 原图:${originalImageSize}, 基准:${baseImageSize}, 图片比例:${imageSizeRatio.toFixed(3)}`);
-        console.log(`[PuzzleResourceManager] 难度调整 - 当前:${gridSize}x${gridSize}, 基准:${baseGridSize}x${baseGridSize}, 难度比例:${difficultyRatio.toFixed(3)}`);
-        console.log(`[PuzzleResourceManager] 最终结果 - Mask尺寸:${actualMaskSize}, 装饰半径:${actualDecorationRadius}`);
-        
-        // 验证660x660图片3x3拼图的计算结果
-        if (originalImageSize === 660 && gridSize === 3) {
-            console.log(`[PuzzleResourceManager] 验证660x660-3x3 - 期望Mask:306, 实际:${actualMaskSize}, 期望半径:43, 实际:${actualDecorationRadius}`);
-        }
-        
-        return { 
-            maskSize: actualMaskSize, 
-            decorationRadius: actualDecorationRadius 
-        };
-    }
     
     /**
      * 获取拼图切片
@@ -362,64 +346,7 @@ export class PuzzleResourceManager extends Component {
             cachedPieces: cachedCount
         };
     }
-    
-    /**
-     * 创建带白色背景的扩展纹理
-     */
-    private createExpandedTextureWithWhiteBackground(
-        originalTexture: Texture2D, 
-        originalRect: Rect, 
-        expandedWidth: number, 
-        expandedHeight: number, 
-        decorationRadius: number
-    ): Texture2D {
-        try {
-            // 创建Canvas来绘制扩展纹理
-            const canvas = document.createElement('canvas');
-            canvas.width = expandedWidth;
-            canvas.height = expandedHeight;
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-                console.error('[PuzzleResourceManager] 无法创建Canvas上下文');
-                return originalTexture;
-            }
-            
-            // 填充白色背景
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, expandedWidth, expandedHeight);
-            
-            // 获取原始纹理的图像数据
-            const imageAsset = originalTexture.image as any;
-            if (imageAsset && imageAsset.data) {
-                // 将ImageAsset转换为可用的图像源
-                if (imageAsset.data instanceof HTMLCanvasElement) {
-                    ctx.drawImage(
-                        imageAsset.data,
-                        originalRect.x, originalRect.y, originalRect.width, originalRect.height,
-                        decorationRadius, decorationRadius, originalRect.width, originalRect.height
-                    );
-                } else if (imageAsset.data instanceof HTMLImageElement) {
-                    ctx.drawImage(
-                        imageAsset.data,
-                        originalRect.x, originalRect.y, originalRect.width, originalRect.height,
-                        decorationRadius, decorationRadius, originalRect.width, originalRect.height
-                    );
-                }
-            }
-            
-            // 创建新的纹理
-            const expandedTexture = new Texture2D();
-            const newImageAsset = new ImageAsset();
-            newImageAsset.reset(canvas);
-            expandedTexture.image = newImageAsset;
-            
-            return expandedTexture;
-        } catch (error) {
-            console.error('[PuzzleResourceManager] 创建扩展纹理失败:', error);
-            return originalTexture;
-        }
-    }
+
     
     update(deltaTime: number) {
         
