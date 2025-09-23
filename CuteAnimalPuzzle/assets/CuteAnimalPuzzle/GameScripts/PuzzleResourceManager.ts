@@ -132,7 +132,7 @@ export class PuzzleResourceManager extends Component {
     }
     
     /**
-     * 生成拼图切片
+     * 生成拼图切片 - 使用SpriteFrame.createWithImage方案
      */
     public generatePuzzlePieces(puzzleId: number, rows: number, cols: number): SpriteFrame[] {
         // 检查缓存
@@ -165,63 +165,77 @@ export class PuzzleResourceManager extends Component {
         
         // 获取原始图片的尺寸
         const originalRect = originalSpriteFrame.rect;
-        const originalImageSize = Math.max(originalRect.width, originalRect.height); // 假设是正方形图片
-        console.log(`[PuzzleResourceManager] 原始图片尺寸: ${originalRect.width}x${originalRect.height}, 使用尺寸: ${originalImageSize}`);
+        const textureWidth = originalRect.width;
+        const textureHeight = originalRect.height;
+        console.log(`[PuzzleResourceManager] 原始图片尺寸: ${textureWidth}x${textureHeight}`);
         
-        // 根据难度和原图尺寸计算Mask尺寸和装饰半径
-        const { maskSize, decorationRadius } = this.calculateMaskSizeAndRadius(rows, cols, originalImageSize);
-        console.log(`[PuzzleResourceManager] Mask尺寸: ${maskSize}, 装饰半径: ${decorationRadius}`);
+        // 基于用户例子的正确计算方法
+        // 384x384图片，3x3难度：maskSize=178, decorationRadius=25, pieceInterval=103
+        // 其他尺寸图片需要按比例缩放
+        const scale = textureWidth / 384; // 以384为基准进行缩放
+        const maskSize = Math.round(178 * scale); // 遮罩尺寸
+        const decorationRadius = Math.round(25 * scale); // 半圆半径
+        const pieceInterval = Math.round(103 * scale); // 切片间隔
         
-        // 计算切片间隔（相邻重叠decorationRadius，所以间隔 = maskSize - 2*decorationRadius）
-        const pieceInterval = maskSize - 2 * decorationRadius;
-        console.log(`[PuzzleResourceManager] 切片间隔: ${pieceInterval}`);
+        // 不同难度的间隔调整
+        const adjustedInterval = Math.round(pieceInterval * (3 / Math.max(rows, cols)));
+        const adjustedMaskSize = Math.round(maskSize * (3 / Math.max(rows, cols)));
+        const adjustedDecorationRadius = Math.round(decorationRadius * (3 / Math.max(rows, cols)));
         
-        // 计算扩展后的图片尺寸（原图 + 2*装饰半径）
-        const expandedWidth = originalRect.width + 2 * decorationRadius;
-        const expandedHeight = originalRect.height + 2 * decorationRadius;
-        console.log(`[PuzzleResourceManager] 扩展后图片尺寸: ${expandedWidth}x${expandedHeight}`);
-        
-        // 创建白色背景的扩展纹理
-        const expandedTexture = this.createExpandedTextureWithWhiteBackground(texture as Texture2D, originalRect, expandedWidth, expandedHeight, decorationRadius);
+        console.log(`[PuzzleResourceManager] 生成${Math.max(rows, cols)}x${Math.max(rows, cols)}拼图切片`);
+        console.log(`[PuzzleResourceManager] 图片尺寸: ${textureWidth}x${textureHeight}, 缩放比例: ${scale}`);
+        console.log(`[PuzzleResourceManager] maskSize: ${adjustedMaskSize}, decorationRadius: ${adjustedDecorationRadius}, pieceInterval: ${adjustedInterval}`);
         
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
-                // 在扩展纹理中计算切片位置（扩展纹理已包含白色背景）
-                const expandedStartX = col * pieceInterval;
-                const expandedStartY = row * pieceInterval;
+                // 判断切片类型
+                const isTopEdge = row === 0;
+                const isBottomEdge = row === rows - 1;
+                const isLeftEdge = col === 0;
+                const isRightEdge = col === cols - 1;
+                const isCorner = (isTopEdge || isBottomEdge) && (isLeftEdge || isRightEdge);
+                const isEdge = isTopEdge || isBottomEdge || isLeftEdge || isRightEdge;
                 
-                // 创建切片的矩形区域（直接在扩展纹理中切片）
-                const pieceRect = new Rect(expandedStartX, expandedStartY, maskSize, maskSize);
+                // 根据用户例子的规律计算切片位置和尺寸
+                let rectX: number, rectY: number, rectWidth: number, rectHeight: number;
                 
-                // 创建新的SpriteFrame
-                const pieceSpriteFrame = new SpriteFrame();
-                pieceSpriteFrame.texture = expandedTexture;
-                pieceSpriteFrame.rect = pieceRect;
+                // 计算起始坐标
+                rectX = col * adjustedInterval;
+                rectY = row * adjustedInterval;
                 
-                // 设置正确的originalSize和offset
-                pieceSpriteFrame.originalSize = new Size(maskSize, maskSize);
-                pieceSpriteFrame.offset = new Vec2(0, 0); // 不需要offset，因为扩展纹理已经包含白色背景
-                pieceSpriteFrame.rotated = false;
+                // 计算尺寸（关键：不同类型切片尺寸不同）
+                if (isCorner) {
+                    // 角落切片：两个方向都减去装饰半径
+                    rectWidth = adjustedMaskSize - adjustedDecorationRadius;
+                    rectHeight = adjustedMaskSize - adjustedDecorationRadius;
+                } else if (isEdge) {
+                    if (isTopEdge || isBottomEdge) {
+                        // 上下边缘：宽度完整，高度减去装饰半径
+                        rectWidth = adjustedMaskSize;
+                        rectHeight = adjustedMaskSize - adjustedDecorationRadius;
+                    } else {
+                        // 左右边缘：高度完整，宽度减去装饰半径
+                        rectWidth = adjustedMaskSize - adjustedDecorationRadius;
+                        rectHeight = adjustedMaskSize;
+                    }
+                } else {
+                    // 中间切片：完整尺寸
+                    rectWidth = adjustedMaskSize;
+                    rectHeight = adjustedMaskSize;
+                }
                 
-                pieces.push(pieceSpriteFrame);
+                console.log(`[PuzzleResourceManager] 切片[${row},${col}] 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}`);
+                console.log(`[PuzzleResourceManager] rect: (${rectX},${rectY}) ${rectWidth}x${rectHeight}`);
                 
-                // 输出调试信息
-                const isTopEdge = (row === 0);
-                const isBottomEdge = (row === rows - 1);
-                const isLeftEdge = (col === 0);
-                const isRightEdge = (col === cols - 1);
+                // 创建SpriteFrame（不需要offset，直接使用rect）
+                const spriteFrame = new SpriteFrame();
+                spriteFrame.texture = texture;
+                spriteFrame.rect = new Rect(rectX, rectY, rectWidth, rectHeight);
+                spriteFrame.offset = new Vec2(0, 0); // 不使用offset
+                spriteFrame.originalSize = new Size(rectWidth, rectHeight); // 使用实际尺寸
                 
-                const positionType = isTopEdge && isLeftEdge ? "左上角" :
-                                   isTopEdge && isRightEdge ? "右上角" :
-                                   isBottomEdge && isLeftEdge ? "左下角" :
-                                   isBottomEdge && isRightEdge ? "右下角" :
-                                   isTopEdge ? "上边缘" :
-                                   isBottomEdge ? "下边缘" :
-                                   isLeftEdge ? "左边缘" :
-                                   isRightEdge ? "右边缘" : "中心";
-                
-                console.log(`[${row},${col}] ${positionType}: ${maskSize}x${maskSize} at (${expandedStartX},${expandedStartY})`);
+                pieces.push(spriteFrame);
             }
         }
         
