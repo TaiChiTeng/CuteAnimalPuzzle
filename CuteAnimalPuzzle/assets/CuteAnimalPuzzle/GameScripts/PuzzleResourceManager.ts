@@ -132,9 +132,9 @@ export class PuzzleResourceManager extends Component {
     }
     
     /**
-     * 生成拼图切片 - 使用文档中的精确坐标数据
+     * 生成拼图切片 - 基于精确参数表格的计算体系
      * 拼图切片的本质是：每个切片都要为相邻切片的"凸起"预留空间，同时自己的"凸起"要延伸到相邻切片的区域
-     * 基于《第2版.md》文档中的精确坐标数据，不使用算法推导
+     * 使用标准化的参数命名和精确的数学公式
      */
     public generatePuzzlePieces(puzzleId: number, rows: number, cols: number): SpriteFrame[] {
         // 检查缓存
@@ -171,45 +171,50 @@ export class PuzzleResourceManager extends Component {
         const textureHeight = originalRect.height;
         console.log(`[PuzzleResourceManager] 原始图片尺寸: ${textureWidth}x${textureHeight}`);
         
-        // 基于文档的精确数据：以384x384为基准，计算缩放比例
-        const scale = textureWidth / 384;
+        // 基础参数定义（基于表格参数体系）
+        const PuzzlePNGLength = 1024;  // 整图PNG边长
+        const PuzzleRealLength = textureWidth;  // 游戏中实际图片边长
+        const difficulty = Math.max(rows, cols);  // 拼图难度
         
-        // 基础参数（基于384x384图片的标准值）
-        const baseMaskSize = 178;
-        const baseDecorationRadius = 25;
+        // 基础参数计算（基于表格公式）
+        const MaskRefSide = 128;  // 遮罩基准边长
+        const maskRefSquareSide = 92;  // 遮罩基准中央正方形边长
+        const maskRefSemiCircleRadius = 18;  // 遮罩基准半圆半径
         
-        // 文档中的精确坐标数据（基于384x384图片）
-        const baseCoordinatesData: { [key: number]: number[] } = {
-            3: [0, 103, 231],  // 3x3难度的精确坐标
-            4: [0, 77, 154, 231],  // 4x4难度（推算）
-            5: [0, 62, 124, 186, 248]  // 5x5难度（推算）
-        };
+        // 根据难度和实际图片尺寸计算参数
+        const maskSquareSide = Math.round(PuzzleRealLength / difficulty);  // 遮罩中央正方形边长
+        const maskSemiCircleRadius = Math.round(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);  // 遮罩半圆半径
+        const MaskSide = Math.round(maskSquareSide + maskSemiCircleRadius * 2);  // 遮罩边长
         
-        const difficulty = Math.max(rows, cols);
-        const baseCoordinates = baseCoordinatesData[difficulty];
+        console.log(`[PuzzleResourceManager] 难度: ${difficulty}x${difficulty}`);
+        console.log(`[PuzzleResourceManager] maskSquareSide: ${maskSquareSide}, maskSemiCircleRadius: ${maskSemiCircleRadius}`);
+        console.log(`[PuzzleResourceManager] MaskSide: ${MaskSide}`);
         
-        if (!baseCoordinates) {
+        // 拼图切片尺寸计算
+        const LeftCornerSide = MaskSide - maskSemiCircleRadius;  // 左上角切片边长
+        
+        // 中间切片起始坐标计算（基于表格公式）
+        const MidUp1CutStartPos = maskSquareSide - maskSemiCircleRadius;  // 中上切片1起点
+        const MidUp2CutStartPos = maskSquareSide * 2 - maskSemiCircleRadius;  // 中上切片2起点  
+        const MidUp3CutStartPos = maskSquareSide * 3 - maskSemiCircleRadius;  // 中上切片3起点
+        const RightCornerCutStartPos = maskSquareSide * (difficulty - 1) - maskSemiCircleRadius;  // 右上角切片起点
+        
+        // 构建坐标数组
+        const coordinates: number[] = [0];  // 第一个坐标总是0
+        
+        if (difficulty === 3) {
+            coordinates.push(MidUp1CutStartPos, RightCornerCutStartPos);
+        } else if (difficulty === 4) {
+            coordinates.push(MidUp1CutStartPos, MidUp2CutStartPos, RightCornerCutStartPos);
+        } else if (difficulty === 5) {
+            coordinates.push(MidUp1CutStartPos, MidUp2CutStartPos, MidUp3CutStartPos, RightCornerCutStartPos);
+        } else {
             console.error(`[PuzzleResourceManager] 不支持的难度: ${difficulty}x${difficulty}`);
             return [];
         }
         
-        // 应用缩放到所有参数
-        const maskSize = Math.round(baseMaskSize * scale);
-        const decorationRadius = Math.round(baseDecorationRadius * scale);
-        
-        // 缩放坐标数组
-        const coordinates = baseCoordinates.map(coord => Math.round(coord * scale));
-        
-        console.log(`[PuzzleResourceManager] 难度: ${difficulty}x${difficulty}, 缩放比例: ${scale.toFixed(3)}`);
-        console.log(`[PuzzleResourceManager] maskSize: ${maskSize}, decorationRadius: ${decorationRadius}`);
-        console.log(`[PuzzleResourceManager] 基础坐标: [${baseCoordinates.join(', ')}]`);
-        console.log(`[PuzzleResourceManager] 缩放后坐标: [${coordinates.join(', ')}]`);
-        
-        // 计算尺寸数组（边缘切片和中间切片的尺寸不同）
-        const edgeSize = maskSize - decorationRadius;  // 边缘切片尺寸 = 178 - 25 = 153
-        const centerSize = maskSize;                   // 中间切片尺寸 = 178
-        
-        console.log(`[PuzzleResourceManager] 边缘切片尺寸: ${edgeSize}, 中间切片尺寸: ${centerSize}`);
+        console.log(`[PuzzleResourceManager] 坐标数组: [${coordinates.join(', ')}]`);
+        console.log(`[PuzzleResourceManager] 左上角切片尺寸: ${LeftCornerSide}`);
         
         // 生成每个切片
         for (let row = 0; row < rows; row++) {
@@ -230,23 +235,23 @@ export class PuzzleResourceManager extends Component {
                 let rectWidth: number, rectHeight: number;
                 
                 if (isCorner) {
-                    // 角落切片：两个方向都是边缘尺寸
-                    rectWidth = edgeSize;
-                    rectHeight = edgeSize;
+                    // 角落切片：使用LeftCornerSide
+                    rectWidth = LeftCornerSide;
+                    rectHeight = LeftCornerSide;
                 } else if (isEdge) {
                     if (isTopEdge || isBottomEdge) {
-                        // 上下边缘：宽度为中间尺寸，高度为边缘尺寸
-                        rectWidth = centerSize;
-                        rectHeight = edgeSize;
+                        // 上下边缘：宽度为MaskSide，高度为LeftCornerSide
+                        rectWidth = MaskSide;
+                        rectHeight = LeftCornerSide;
                     } else {
-                        // 左右边缘：宽度为边缘尺寸，高度为中间尺寸
-                        rectWidth = edgeSize;
-                        rectHeight = centerSize;
+                        // 左右边缘：宽度为LeftCornerSide，高度为MaskSide
+                        rectWidth = LeftCornerSide;
+                        rectHeight = MaskSide;
                     }
                 } else {
-                    // 中间切片：两个方向都是中间尺寸
-                    rectWidth = centerSize;
-                    rectHeight = centerSize;
+                    // 中间切片：两个方向都是MaskSide
+                    rectWidth = MaskSide;
+                    rectHeight = MaskSide;
                 }
                 
                 console.log(`[PuzzleResourceManager] 切片[${row},${col}] 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}`);

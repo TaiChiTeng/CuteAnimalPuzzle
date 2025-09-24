@@ -46,8 +46,8 @@ public generatePuzzlePieces(originalTexture: Texture2D, difficulty: number): Spr
 - `SpriteFrame[]` - 拼图切片数组，按行列顺序排列
 
 **算法特点**:
-1. **基于精确坐标数据**: 使用《第2版.md》文档中验证过的精确坐标，而非算法推导
-2. **数据驱动**: 预定义各难度的基础坐标数据，通过缩放适配不同尺寸
+1. **基于精确参数表格**: 使用标准化的参数命名体系和精确的数学公式
+2. **标准化计算**: 采用表格中定义的参数名称和计算公式，确保一致性
 3. **缓存机制**: 相同规格的切片只生成一次，后续直接从缓存获取
 4. **类型安全**: 完整的TypeScript类型注解和错误处理
 
@@ -55,38 +55,54 @@ public generatePuzzlePieces(originalTexture: Texture2D, difficulty: number): Spr
 
 #### 1. 缓存检查
 ```typescript
-const cacheKey = `${originalTexture.name}_${difficulty}_${textureWidth}x${textureHeight}`;
-if (this.puzzlePiecesCache.has(cacheKey)) {
-    return this.puzzlePiecesCache.get(cacheKey)!;
+const cacheKey = `${rows}x${cols}`;
+if (!this.pieceCache.has(puzzleId)) {
+    this.pieceCache.set(puzzleId, new Map());
+}
+const puzzleCache = this.pieceCache.get(puzzleId);
+if (puzzleCache.has(cacheKey)) {
+    return puzzleCache.get(cacheKey);
 }
 ```
 
 #### 2. 基础参数计算
 ```typescript
-// 基于384x384基准图片的标准参数
-const baseMaskSize = 178;
-const baseDecorationRadius = 25;
+// 基础参数定义（基于表格参数体系）
+const PuzzlePNGLength = 1024;  // 整图PNG边长
+const PuzzleRealLength = textureWidth;  // 游戏中实际图片边长
+const difficulty = Math.max(rows, cols);  // 拼图难度
 
-// 精确坐标数据（基于文档验证）
-const baseCoordinatesData = {
-    3: [0, 103, 231],              // 3x3难度
-    4: [0, 77, 154, 231],          // 4x4难度  
-    5: [0, 62, 124, 186, 248]      // 5x5难度
-};
+// 基础参数计算（基于表格公式）
+const MaskRefSide = 128;  // 遮罩基准边长
+const maskRefSquareSide = 92;  // 遮罩基准中央正方形边长
+const maskRefSemiCircleRadius = 18;  // 遮罩基准半圆半径
 
-// 缩放比例计算
-const scale = textureWidth / 384;
-const maskSize = Math.round(baseMaskSize * scale);
-const decorationRadius = Math.round(baseDecorationRadius * scale);
+// 根据难度和实际图片尺寸计算参数
+const maskSquareSide = Math.round(PuzzleRealLength / difficulty);  // 遮罩中央正方形边长
+const maskSemiCircleRadius = Math.round(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);  // 遮罩半圆半径
+const MaskSide = Math.round(maskSquareSide + maskSemiCircleRadius * 2);  // 遮罩边长
 ```
 
 #### 3. 坐标数组生成
 ```typescript
-const baseCoordinates = baseCoordinatesData[difficulty];
-const coordinates = baseCoordinates.map(coord => Math.round(coord * scale));
+// 中间切片起始坐标计算（基于表格公式）
+const MidUp1CutStartPos = maskSquareSide - maskSemiCircleRadius;  // 中上切片1起点
+const MidUp2CutStartPos = maskSquareSide * 2 - maskSemiCircleRadius;  // 中上切片2起点  
+const MidUp3CutStartPos = maskSquareSide * 3 - maskSemiCircleRadius;  // 中上切片3起点
+const RightCornerCutStartPos = maskSquareSide * (difficulty - 1) - maskSemiCircleRadius;  // 右上角切片起点
+
+// 构建坐标数组
+const coordinates: number[] = [0];  // 第一个坐标总是0
+if (difficulty === 3) {
+    coordinates.push(MidUp1CutStartPos, RightCornerCutStartPos);
+} else if (difficulty === 4) {
+    coordinates.push(MidUp1CutStartPos, MidUp2CutStartPos, RightCornerCutStartPos);
+} else if (difficulty === 5) {
+    coordinates.push(MidUp1CutStartPos, MidUp2CutStartPos, MidUp3CutStartPos, RightCornerCutStartPos);
+}
 ```
 
-**关键改进**: 直接使用文档中的精确坐标数据，避免算法推导可能产生的错误。
+**关键改进**: 使用表格中的标准化参数名称和精确计算公式，确保与表格数据完全一致。
 
 #### 4. 切片类型判断
 每个切片根据其在网格中的位置被分类为：
@@ -96,25 +112,24 @@ const coordinates = baseCoordinates.map(coord => Math.round(coord * scale));
 
 #### 5. 尺寸计算
 ```typescript
-const edgeSize = maskSize - decorationRadius;  // 边缘切片尺寸
-const centerSize = maskSize;                   // 中间切片尺寸
+// 拼图切片尺寸计算
+const LeftCornerSide = MaskSide - maskSemiCircleRadius;  // 左上角切片边长
 
 // 根据切片类型分配尺寸
 if (isCorner) {
-    rectWidth = edgeSize;   // 153 (384基准)
-    rectHeight = edgeSize;  // 153
+    rectWidth = LeftCornerSide;   // 角落切片使用LeftCornerSide
+    rectHeight = LeftCornerSide;
 } else if (isEdge) {
-    // 边缘切片一个维度为centerSize，另一个为edgeSize
     if (isTopEdge || isBottomEdge) {
-        rectWidth = centerSize;   // 178
-        rectHeight = edgeSize;    // 153
+        rectWidth = MaskSide;      // 上下边缘：宽度为MaskSide
+        rectHeight = LeftCornerSide;  // 高度为LeftCornerSide
     } else {
-        rectWidth = edgeSize;     // 153
-        rectHeight = centerSize;  // 178
+        rectWidth = LeftCornerSide;   // 左右边缘：宽度为LeftCornerSide
+        rectHeight = MaskSide;        // 高度为MaskSide
     }
 } else {
-    rectWidth = centerSize;   // 178
-    rectHeight = centerSize;  // 178
+    rectWidth = MaskSide;         // 中间切片：两个方向都是MaskSide
+    rectHeight = MaskSide;
 }
 ```
 
@@ -130,19 +145,38 @@ spriteFrame.rect = new Rect(x, y, rectWidth, rectHeight);
 ### 支持的图片规格
 
 #### 游戏实际使用 (660x660)
-- **3x3难度**: 坐标 [0, 177, 397], 切片尺寸 263×263 (边缘) / 306×306 (中间)
-- **4x4难度**: 坐标 [0, 132, 265, 397], 切片尺寸 263×263 (边缘) / 306×306 (中间)  
-- **5x5难度**: 坐标 [0, 107, 213, 320, 426], 切片尺寸 263×263 (边缘) / 306×306 (中间)
+基于表格参数计算的精确结果：
+
+- **3x3难度**: 
+  - maskSquareSide: 220, maskSemiCircleRadius: 43, MaskSide: 306
+  - LeftCornerSide: 263
+  - 坐标数组: [0, 177, 397]
+
+- **4x4难度**: 
+  - maskSquareSide: 165, maskSemiCircleRadius: 32, MaskSide: 229
+  - LeftCornerSide: 197
+  - 坐标数组: [0, 133, 298, 463]
+
+- **5x5难度**: 
+  - maskSquareSide: 132, maskSemiCircleRadius: 26, MaskSide: 184
+  - LeftCornerSide: 158
+  - 坐标数组: [0, 106, 238, 370, 502]
 
 #### 完整原图 (1024x1024)
-- **3x3难度**: 坐标 [0, 275, 616], 切片尺寸 408×408 (边缘) / 475×475 (中间)
-- **4x4难度**: 坐标 [0, 205, 411, 616], 切片尺寸 408×408 (边缘) / 475×475 (中间)
-- **5x5难度**: 坐标 [0, 165, 331, 496, 661], 切片尺寸 408×408 (边缘) / 475×475 (中间)
+- **3x3难度**: 
+  - maskSquareSide: 341, maskSemiCircleRadius: 67, MaskSide: 475
+  - LeftCornerSide: 408
+  - 坐标数组: [0, 274, 615]
 
-#### 文档基准 (384x384)
-- **3x3难度**: 坐标 [0, 103, 231], 切片尺寸 153×153 (边缘) / 178×178 (中间)
-- **4x4难度**: 坐标 [0, 77, 154, 231], 切片尺寸 153×153 (边缘) / 178×178 (中间)
-- **5x5难度**: 坐标 [0, 62, 124, 186, 248], 切片尺寸 153×153 (边缘) / 178×178 (中间)
+- **4x4难度**: 
+  - maskSquareSide: 256, maskSemiCircleRadius: 50, MaskSide: 356
+  - LeftCornerSide: 306
+  - 坐标数组: [0, 206, 462, 718]
+
+- **5x5难度**: 
+  - maskSquareSide: 205, maskSemiCircleRadius: 40, MaskSide: 285
+  - LeftCornerSide: 245
+  - 坐标数组: [0, 165, 370, 575, 780]
 
 ## 依赖关系
 

@@ -89,7 +89,7 @@ export class UISolvePuzzle extends Component {
 
     
     /**
-     * 计算sprIcon的尺寸和位置偏移（基于不扩充边缘的方案）
+     * 计算sprIcon的尺寸和位置偏移（基于表格参数的精确计算体系）
      */
     private calculateSprIconSizeAndPosition(slotIndex: number, rows: number, cols: number): {
         width: number, 
@@ -97,9 +97,17 @@ export class UISolvePuzzle extends Component {
         offsetX: number, 
         offsetY: number
     } {
-        // 基于384x384图片，3x3难度的基准参数和拼图切片尺寸
-        const baseImageSize = 384;
-        const scale = 660 / baseImageSize; // 缩放比例：660/384
+        // 基于表格参数的标准化计算（与PuzzleResourceManager保持一致）
+        const PuzzleRealLength = 660;  // 游戏中实际图标边长
+        const maskRefSquareSide = 92;  // 适宜基准中正方形边长
+        const maskRefSemiCircleRadius = 18;  // 适宜基准半圆半径
+        const difficulty = rows;  // 难度等于行数
+        
+        // 计算基础参数
+        const maskSquareSide = Math.round(PuzzleRealLength / difficulty);
+        const maskSemiCircleRadius = Math.round(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);
+        const MaskSide = Math.round(maskSquareSide + maskSemiCircleRadius * 2);
+        const LeftCornerSide = MaskSide - maskSemiCircleRadius;
         
         // 计算切片在网格中的位置
         const row = Math.floor(slotIndex / cols);
@@ -113,77 +121,57 @@ export class UISolvePuzzle extends Component {
         const isCorner = (isTopEdge || isBottomEdge) && (isLeftEdge || isRightEdge);
         const isEdge = isTopEdge || isBottomEdge || isLeftEdge || isRightEdge;
         
-        // 基于文档中384x384图片3x3难度的拼图切片尺寸（直接使用，不计算）
-        let baseSprIconWidth: number, baseSprIconHeight: number;
-        let baseOffsetX: number, baseOffsetY: number;
-        let deltaDis = 25/2;
+        // 基于表格参数计算sprIcon尺寸和偏移
+        let sprIconWidth: number, sprIconHeight: number;
+        let offsetX: number, offsetY: number;
+        const halfRadius = Math.round(maskSemiCircleRadius / 2);  // 偏移距离为半圆半径的一半
+        
         if (isCorner) {
+            // 角落切片：使用LeftCornerSide尺寸
+            sprIconWidth = LeftCornerSide;
+            sprIconHeight = LeftCornerSide;
+            
             if (isTopEdge && isLeftEdge) {
-                // 左上角：拼图切片(0,0)~(153,153) → sprIcon尺寸153x153，坐标(25,-25)
-                baseSprIconWidth = 153;
-                baseSprIconHeight = 153;
-                baseOffsetX = deltaDis;
-                baseOffsetY = -deltaDis;
+                // 左上角：偏移(+halfRadius, -halfRadius)
+                offsetX = halfRadius;
+                offsetY = -halfRadius;
             } else if (isTopEdge && isRightEdge) {
-                // 右上角：拼图切片(231,0)~(153,153) → sprIcon尺寸153x153，坐标(-25,-25)
-                baseSprIconWidth = 153;
-                baseSprIconHeight = 153;
-                baseOffsetX = -deltaDis;
-                baseOffsetY = -deltaDis;
+                // 右上角：偏移(-halfRadius, -halfRadius)
+                offsetX = -halfRadius;
+                offsetY = -halfRadius;
             } else if (isBottomEdge && isLeftEdge) {
-                // 左下角：拼图切片(0,231)~(153,153) → sprIcon尺寸153x153，坐标(25,25)
-                baseSprIconWidth = 153;
-                baseSprIconHeight = 153;
-                baseOffsetX = deltaDis;
-                baseOffsetY = deltaDis;
+                // 左下角：偏移(+halfRadius, +halfRadius)
+                offsetX = halfRadius;
+                offsetY = halfRadius;
             } else {
-                // 右下角：拼图切片(231,231)~(153,153) → sprIcon尺寸153x153，坐标(-25,25)
-                baseSprIconWidth = 153;
-                baseSprIconHeight = 153;
-                baseOffsetX = -deltaDis;
-                baseOffsetY = deltaDis;
+                // 右下角：偏移(-halfRadius, +halfRadius)
+                offsetX = -halfRadius;
+                offsetY = halfRadius;
             }
         } else if (isEdge) {
-            if (isTopEdge) {
-                // 上边缘：拼图切片(103,0)~(178,153) → sprIcon尺寸178x153，坐标(0,-25)
-                baseSprIconWidth = 178;
-                baseSprIconHeight = 153;
-                baseOffsetX = 0;
-                baseOffsetY = -deltaDis;
-            } else if (isBottomEdge) {
-                // 下边缘：拼图切片(103,231)~(178,153) → sprIcon尺寸178x153，坐标(0,25)
-                baseSprIconWidth = 178;
-                baseSprIconHeight = 153;
-                baseOffsetX = 0;
-                baseOffsetY = deltaDis;
-            } else if (isLeftEdge) {
-                // 左边缘：拼图切片(0,103)~(153,178) → sprIcon尺寸153x178，坐标(25,0)
-                baseSprIconWidth = 153;
-                baseSprIconHeight = 178;
-                baseOffsetX = deltaDis;
-                baseOffsetY = 0;
+            if (isTopEdge || isBottomEdge) {
+                // 上下边缘：宽度使用MaskSide，高度使用LeftCornerSide
+                sprIconWidth = MaskSide;
+                sprIconHeight = LeftCornerSide;
+                offsetX = 0;
+                offsetY = isTopEdge ? -halfRadius : halfRadius;
             } else {
-                // 右边缘：拼图切片(231,103)~(153,178) → sprIcon尺寸153x178，坐标(-25,0)
-                baseSprIconWidth = 153;
-                baseSprIconHeight = 178;
-                baseOffsetX = -deltaDis;
-                baseOffsetY = 0;
+                // 左右边缘：宽度使用LeftCornerSide，高度使用MaskSide
+                sprIconWidth = LeftCornerSide;
+                sprIconHeight = MaskSide;
+                offsetX = isLeftEdge ? halfRadius : -halfRadius;
+                offsetY = 0;
             }
         } else {
-            // 中间切片：拼图切片(103,103)~(178,178) → sprIcon尺寸178x178，坐标(0,0)
-            baseSprIconWidth = 178;
-            baseSprIconHeight = 178;
-            baseOffsetX = 0;
-            baseOffsetY = 0;
+            // 中间切片：使用MaskSide尺寸，无偏移
+            sprIconWidth = MaskSide;
+            sprIconHeight = MaskSide;
+            offsetX = 0;
+            offsetY = 0;
         }
-
-        // 应用缩放比例
-        const sprIconWidth = Math.round(baseSprIconWidth * scale);
-        const sprIconHeight = Math.round(baseSprIconHeight * scale);
-        const offsetX = Math.round(baseOffsetX * scale);
-        const offsetY = Math.round(baseOffsetY * scale);
         
-        console.log(`[UISolvePuzzle] 切片${slotIndex}[${row},${col}] 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}, sprIcon尺寸: ${sprIconWidth}x${sprIconHeight}, 偏移: (${offsetX}, ${offsetY})`);
+        console.log(`[UISolvePuzzle] 切片${slotIndex}[${row},${col}] 难度${difficulty}x${difficulty}, 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}, sprIcon尺寸: ${sprIconWidth}x${sprIconHeight}, 偏移: (${offsetX}, ${offsetY})`);
+        console.log(`[UISolvePuzzle] 参数详情 - maskSquareSide: ${maskSquareSide}, maskSemiCircleRadius: ${maskSemiCircleRadius}, MaskSide: ${MaskSide}, LeftCornerSide: ${LeftCornerSide}`);
         
         return {
             width: sprIconWidth,
