@@ -105,7 +105,7 @@ export class UISolvePuzzle extends Component {
         
         // 计算基础参数
         const maskSquareSide = Math.round(PuzzleRealLength / difficulty);
-        const maskSemiCircleRadius = Math.round(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);
+        const maskSemiCircleRadius = Math.ceil(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);  // 向上取整避免小数
         const MaskSide = Math.round(maskSquareSide + maskSemiCircleRadius * 2);
         const LeftCornerSide = MaskSide - maskSemiCircleRadius;
         
@@ -1372,7 +1372,7 @@ export class UISolvePuzzle extends Component {
             
             // 设置新创建的PuzzlePiece节点的遮罩
             if (puzzlePieceComponent) {
-                this.setupPieceMask(puzzlePieceComponent.node, this.currentDraggedPuzzlePiece.pieceIndex);
+                this.setupBottomListPieceMask(puzzlePieceComponent.node, this.currentDraggedPuzzlePiece.pieceIndex);
             }
             
             // 销毁原dragPieceSlots节点
@@ -1592,8 +1592,8 @@ export class UISolvePuzzle extends Component {
             // 设置拼图切片图片（这里需要根据实际需求实现切片逻辑）
             this.setupPieceSprite(pieceNode, i);
             
-            // 设置拼图切片遮罩
-            this.setupPieceMask(pieceNode, i);
+            // 设置底部列表拼图切片遮罩（专门用于150x150规格）
+            this.setupBottomListPieceMask(pieceNode, i);
             
             // 为拼图切片添加鼠标事件
             this.setupPieceMouseEvents(pieceNode, puzzlePiece);
@@ -1605,6 +1605,9 @@ export class UISolvePuzzle extends Component {
         
         // 打乱拼图切片顺序
         this.shufflePieces();
+        
+        // 打印底部列表各节点的尺寸信息
+        this.printBottomListNodeSizes();
     }
 
     /**
@@ -1640,6 +1643,219 @@ export class UISolvePuzzle extends Component {
                 }
             }
         }
+    }
+
+    /**
+     * 计算底部列表拼图切片的尺寸和位置（固定150x150规格）
+     * @param slotIndex 切片索引
+     * @param difficulty 难度（行数或列数）
+     * @returns 包含sprIcon尺寸和偏移的对象
+     */
+    private calculateBottomListSprIconSizeAndPosition(slotIndex: number, difficulty: number): {
+        width: number;
+        height: number;
+        offsetX: number;
+        offsetY: number;
+    } {
+        // 底部列表固定参数
+        const BOTTOM_LIST_SIZE = 150; // 底部列表固定尺寸150x150
+        
+        // 获取表格参数（与PuzzleResourceManager保持一致）
+        const PuzzleRealLength = 660; // 基准图片尺寸
+        const maskRefSquareSide = 128; // 参考正方形边长
+        const maskRefSemiCircleRadius = 22; // 参考半圆半径
+        
+        // 计算基础参数
+        const maskSquareSide = Math.round((PuzzleRealLength / difficulty) * (maskRefSquareSide / PuzzleRealLength));
+        const maskSemiCircleRadius = Math.ceil((PuzzleRealLength / difficulty) * (maskRefSemiCircleRadius / PuzzleRealLength));
+        const MaskSide = maskSquareSide + 2 * maskSemiCircleRadius;
+        const LeftCornerSide = maskSquareSide + maskSemiCircleRadius;
+        
+        // 计算缩放比例（将原始尺寸缩放到150x150）
+        const scaleRatio = BOTTOM_LIST_SIZE / MaskSide;
+        
+        // 计算切片位置信息
+        const row = Math.floor(slotIndex / difficulty);
+        const col = slotIndex % difficulty;
+        
+        // 判断切片类型
+        const isCorner = (row === 0 || row === difficulty - 1) && (col === 0 || col === difficulty - 1);
+        const isEdge = !isCorner && (row === 0 || row === difficulty - 1 || col === 0 || col === difficulty - 1);
+        
+        // 判断边缘位置
+        const isTopEdge = row === 0;
+        const isBottomEdge = row === difficulty - 1;
+        const isLeftEdge = col === 0;
+        const isRightEdge = col === difficulty - 1;
+        
+        let sprIconWidth: number;
+        let sprIconHeight: number;
+        let offsetX: number;
+        let offsetY: number;
+        
+        const halfRadius = maskSemiCircleRadius * scaleRatio;
+        
+        if (isCorner) {
+            // 角落切片：使用LeftCornerSide尺寸，根据位置设置偏移
+            sprIconWidth = LeftCornerSide * scaleRatio;
+            sprIconHeight = LeftCornerSide * scaleRatio;
+            
+            // 根据角落位置设置偏移
+            if (isTopEdge && isLeftEdge) {
+                // 左上角
+                offsetX = halfRadius;
+                offsetY = -halfRadius;
+            } else if (isTopEdge && isRightEdge) {
+                // 右上角
+                offsetX = -halfRadius;
+                offsetY = -halfRadius;
+            } else if (isBottomEdge && isLeftEdge) {
+                // 左下角
+                offsetX = halfRadius;
+                offsetY = halfRadius;
+            } else {
+                // 右下角
+                offsetX = -halfRadius;
+                offsetY = halfRadius;
+            }
+        } else if (isEdge) {
+            // 边缘切片：根据边缘方向设置尺寸和偏移
+            if (isTopEdge || isBottomEdge) {
+                // 上下边缘：宽度使用MaskSide，高度使用LeftCornerSide
+                sprIconWidth = MaskSide * scaleRatio;
+                sprIconHeight = LeftCornerSide * scaleRatio;
+                offsetX = 0;
+                offsetY = isTopEdge ? -halfRadius : halfRadius;
+            } else {
+                // 左右边缘：宽度使用LeftCornerSide，高度使用MaskSide
+                sprIconWidth = LeftCornerSide * scaleRatio;
+                sprIconHeight = MaskSide * scaleRatio;
+                offsetX = isLeftEdge ? halfRadius : -halfRadius;
+                offsetY = 0;
+            }
+        } else {
+            // 中间切片：使用MaskSide尺寸，无偏移
+            sprIconWidth = MaskSide * scaleRatio;
+            sprIconHeight = MaskSide * scaleRatio;
+            offsetX = 0;
+            offsetY = 0;
+        }
+        
+        console.log(`[UISolvePuzzle] 底部列表切片${slotIndex}[${row},${col}] 难度${difficulty}x${difficulty}, 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}, sprIcon尺寸: ${sprIconWidth.toFixed(1)}x${sprIconHeight.toFixed(1)}, 偏移: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+        console.log(`[UISolvePuzzle] 底部列表参数详情 - 缩放比例: ${scaleRatio.toFixed(3)}, maskSquareSide: ${maskSquareSide}, maskSemiCircleRadius: ${maskSemiCircleRadius}, MaskSide: ${MaskSide}, LeftCornerSide: ${LeftCornerSide}`);
+        
+        return {
+            width: Math.round(sprIconWidth),
+            height: Math.round(sprIconHeight),
+            offsetX: Math.round(offsetX),
+            offsetY: Math.round(offsetY)
+        };
+    }
+
+    /**
+     * 设置底部列表拼图切片的尺寸（专门用于150x150规格）
+     * @param pieceNode 拼图切片节点
+     * @param slotIndex 切片索引
+     */
+    private setupBottomListPieceMask(pieceNode: Node, slotIndex: number): void {
+        const BOTTOM_LIST_SIZE = 150; // 底部列表固定尺寸
+        
+        // 设置puzzlePiecePrefab的尺寸为150x150
+        const pieceUITransform = pieceNode.getComponent(UITransform);
+        if (pieceUITransform) {
+            pieceUITransform.setContentSize(BOTTOM_LIST_SIZE, BOTTOM_LIST_SIZE);
+        }
+        
+        // 获取遮罩图片
+        const maskSpriteFrame = GameDataPuzzle.getMaskSpriteFrame(this.currentDifficulty, slotIndex);
+        if (!maskSpriteFrame) {
+            console.warn(`[UISolvePuzzle] 无法获取槽位${slotIndex}的遮罩图片`);
+            return;
+        }
+        
+        // 查找Mask节点
+        const maskNode = pieceNode.getChildByName('Mask');
+        if (!maskNode) {
+            console.warn(`[UISolvePuzzle] 切片${slotIndex}无法找到Mask子节点`);
+            return;
+        }
+        
+        // 设置Mask节点的尺寸为150x150
+        const maskUITransform = maskNode.getComponent(UITransform);
+        if (maskUITransform) {
+            maskUITransform.setContentSize(BOTTOM_LIST_SIZE, BOTTOM_LIST_SIZE);
+        }
+        
+        // 设置Mask节点的遮罩图片
+        const maskSprite = maskNode.getComponent(Sprite);
+        if (maskSprite) {
+            maskSprite.spriteFrame = maskSpriteFrame;
+        }
+        
+        // 查找sprIcon节点
+        const sprIconNode = maskNode.getChildByName('sprIcon');
+        if (!sprIconNode) {
+            console.warn(`[UISolvePuzzle] 切片${slotIndex}的Mask无法找到sprIcon子节点`);
+            return;
+        }
+        
+        // 设置sprIcon的拼图切片图片和精确尺寸
+        const sprIconSprite = sprIconNode.getComponent(Sprite);
+        const sprIconUITransform = sprIconNode.getComponent(UITransform);
+        if (sprIconSprite && sprIconUITransform) {
+            // 获取对应的拼图切片
+            const puzzlePieceSpriteFrame = PuzzleResourceManager.instance.getPuzzlePiece(
+                this.currentPuzzleId, 
+                this.gridRows, 
+                this.gridCols, 
+                slotIndex
+            );
+            
+            if (puzzlePieceSpriteFrame) {
+                sprIconSprite.spriteFrame = puzzlePieceSpriteFrame;
+                
+                // 计算底部列表sprIcon的精确尺寸和位置
+                const sprIconSizeAndPos = this.calculateBottomListSprIconSizeAndPosition(slotIndex, this.gridRows);
+                
+                // 设置sprIcon精确尺寸
+                sprIconUITransform.setContentSize(sprIconSizeAndPos.width, sprIconSizeAndPos.height);
+                
+                // 设置sprIcon位置偏移
+                sprIconNode.setPosition(sprIconSizeAndPos.offsetX, sprIconSizeAndPos.offsetY, 0);
+                
+                console.log(`[UISolvePuzzle] 底部列表切片${slotIndex}设置完成 - puzzlePiece: ${BOTTOM_LIST_SIZE}x${BOTTOM_LIST_SIZE}, Mask: ${BOTTOM_LIST_SIZE}x${BOTTOM_LIST_SIZE}, sprIcon: ${sprIconSizeAndPos.width}x${sprIconSizeAndPos.height}, 偏移: (${sprIconSizeAndPos.offsetX}, ${sprIconSizeAndPos.offsetY})`);
+            } else {
+                console.error(`[UISolvePuzzle] 无法获取切片${slotIndex}的拼图图片`);
+            }
+        }
+    }
+
+    /**
+     * 打印不同难度下底部列表各节点的尺寸信息
+     */
+    private printBottomListNodeSizes(): void {
+        console.log(`\n=== 底部列表拼图切片尺寸信息 ===`);
+        console.log(`当前难度: ${this.gridRows}x${this.gridCols}`);
+        console.log(`底部列表固定规格: 150x150`);
+        
+        const totalPieces = this.gridRows * this.gridCols;
+        
+        for (let i = 0; i < totalPieces; i++) {
+            const row = Math.floor(i / this.gridCols);
+            const col = i % this.gridCols;
+            
+            // 计算sprIcon尺寸和位置
+            const sprIconInfo = this.calculateBottomListSprIconSizeAndPosition(i, this.gridRows);
+            
+            // 判断切片类型
+            const isCorner = (row === 0 || row === this.gridRows - 1) && (col === 0 || col === this.gridCols - 1);
+            const isEdge = !isCorner && (row === 0 || row === this.gridRows - 1 || col === 0 || col === this.gridCols - 1);
+            const pieceType = isCorner ? '角落' : isEdge ? '边缘' : '中间';
+            
+            console.log(`切片${i}[${row},${col}] ${pieceType}: puzzlePiece(150x150) -> Mask(150x150) -> sprIcon(${sprIconInfo.width}x${sprIconInfo.height}, 偏移:${sprIconInfo.offsetX},${sprIconInfo.offsetY})`);
+        }
+        
+        console.log(`=== 底部列表尺寸信息打印完成 ===\n`);
     }
 
     /**

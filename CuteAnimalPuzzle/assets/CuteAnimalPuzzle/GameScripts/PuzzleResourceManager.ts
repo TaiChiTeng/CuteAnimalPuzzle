@@ -183,7 +183,7 @@ export class PuzzleResourceManager extends Component {
         
         // 根据难度和实际图片尺寸计算参数
         const maskSquareSide = Math.round(PuzzleRealLength / difficulty);  // 遮罩中央正方形边长
-        const maskSemiCircleRadius = Math.round(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);  // 遮罩半圆半径
+        const maskSemiCircleRadius = Math.ceil(maskSquareSide / maskRefSquareSide * maskRefSemiCircleRadius);  // 遮罩半圆半径（向上取整）
         const MaskSide = Math.round(maskSquareSide + maskSemiCircleRadius * 2);  // 遮罩边长
         
         console.log(`[PuzzleResourceManager] 难度: ${difficulty}x${difficulty}`);
