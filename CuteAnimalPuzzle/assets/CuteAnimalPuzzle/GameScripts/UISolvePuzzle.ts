@@ -1237,6 +1237,9 @@ export class UISolvePuzzle extends Component {
         this.setupPieceMask(answerPiece, slotIndex);
         this.setupAnswerPieceSprite(answerPiece, slotIndex);
         
+        // 隐藏网格答案的MaskShadow节点
+        this.hideMaskShadowForAnswerPiece(answerPiece);
+        
         // 将答案切片添加到puzzleAnswers父节点
         this.puzzleAnswers.addChild(answerPiece);
         
@@ -1662,8 +1665,8 @@ export class UISolvePuzzle extends Component {
         
         // 获取表格参数（与PuzzleResourceManager保持一致）
         const PuzzleRealLength = 660; // 基准图片尺寸
-        const maskRefSquareSide = 128; // 参考正方形边长
-        const maskRefSemiCircleRadius = 22; // 参考半圆半径
+        const maskRefSquareSide = 92;  // 适宜基准中正方形边长
+        const maskRefSemiCircleRadius = 18;  // 适宜基准半圆半径
         
         // 计算基础参数
         const maskSquareSide = Math.round((PuzzleRealLength / difficulty) * (maskRefSquareSide / PuzzleRealLength));
@@ -1740,7 +1743,11 @@ export class UISolvePuzzle extends Component {
             offsetX = 0;
             offsetY = 0;
         }
-        
+
+        // 添加阴影MaskShadow/sprShadow后，发现得×0.5才是正确的偏移，还没想通
+        offsetX *= 0.5;
+        offsetY *= 0.5;
+
         console.log(`[UISolvePuzzle] 底部列表切片${slotIndex}[${row},${col}] 难度${difficulty}x${difficulty}, 类型: ${isCorner ? '角落' : isEdge ? '边缘' : '中间'}, sprIcon尺寸: ${sprIconWidth.toFixed(1)}x${sprIconHeight.toFixed(1)}, 偏移: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
         console.log(`[UISolvePuzzle] 底部列表参数详情 - 缩放比例: ${scaleRatio.toFixed(3)}, maskSquareSide: ${maskSquareSide}, maskSemiCircleRadius: ${maskSemiCircleRadius}, MaskSide: ${MaskSide}, LeftCornerSide: ${LeftCornerSide}`);
         
@@ -1792,6 +1799,9 @@ export class UISolvePuzzle extends Component {
             maskSprite.spriteFrame = maskSpriteFrame;
         }
         
+        // 设置MaskShadow
+        this.setupMaskShadow(pieceNode, maskNode, maskSpriteFrame, { width: BOTTOM_LIST_SIZE, height: BOTTOM_LIST_SIZE }, -4, slotIndex, true);
+        
         // 查找sprIcon节点
         const sprIconNode = maskNode.getChildByName('sprIcon');
         if (!sprIconNode) {
@@ -1828,6 +1838,125 @@ export class UISolvePuzzle extends Component {
                 console.error(`[UISolvePuzzle] 无法获取切片${slotIndex}的拼图图片`);
             }
         }
+    }
+
+    /**
+     * 设置MaskShadow的动态属性，包括sprShadow的设置
+     * 根据Mask的设置同步设置MaskShadow和sprShadow的图片、尺寸和位置
+     * @param pieceNode 拼图切片节点
+     * @param maskNode Mask节点
+     * @param maskSpriteFrame Mask使用的SpriteFrame
+     * @param maskSize Mask的尺寸
+     * @param shadowOffsetY MaskShadow的Y轴偏移，默认-4
+     * @param slotIndex 切片索引，用于计算sprShadow的精确尺寸和位置
+     * @param isBottomList 是否为底部列表，影响sprShadow的计算方式
+     */
+    private setupMaskShadow(
+        pieceNode: Node, 
+        maskNode: Node, 
+        maskSpriteFrame: SpriteFrame, 
+        maskSize: { width: number, height: number }, 
+        shadowOffsetY: number = -4,
+        slotIndex?: number,
+        isBottomList: boolean = false
+    ): void {
+        // 查找MaskShadow节点
+        const maskShadowNode = pieceNode.getChildByName('MaskShadow');
+        if (!maskShadowNode) {
+            console.warn(`[UISolvePuzzle] 切片节点无法找到MaskShadow子节点`);
+            return;
+        }
+        
+        // 获取MaskShadow的Sprite组件
+        const maskShadowSprite = maskShadowNode.getComponent(Sprite);
+        if (!maskShadowSprite) {
+            console.warn(`[UISolvePuzzle] MaskShadow节点没有Sprite组件`);
+            return;
+        }
+        
+        // 获取MaskShadow的UITransform组件
+        const maskShadowUITransform = maskShadowNode.getComponent(UITransform);
+        if (!maskShadowUITransform) {
+            console.warn(`[UISolvePuzzle] MaskShadow节点没有UITransform组件`);
+            return;
+        }
+        
+        // 获取Mask节点的位置
+        const maskPosition = maskNode.getPosition();
+        
+        // 设置MaskShadow的图片（与Mask相同）
+        maskShadowSprite.spriteFrame = maskSpriteFrame;
+        
+        // 设置MaskShadow的尺寸（与Mask相同）
+        maskShadowUITransform.setContentSize(maskSize.width, maskSize.height);
+        
+        // 设置MaskShadow的位置（X坐标与Mask相同，Y坐标根据配置偏移）
+        maskShadowNode.setPosition(maskPosition.x, maskPosition.y + shadowOffsetY, maskPosition.z);
+        
+        console.log(`[UISolvePuzzle] MaskShadow设置完成 - 图片: ${maskSpriteFrame.name || '未知'}, 尺寸: ${maskSize.width}x${maskSize.height}, 位置: (${maskPosition.x}, ${maskPosition.y + shadowOffsetY}), 偏移: ${shadowOffsetY}`);
+        
+        // 设置sprShadow（如果提供了slotIndex）
+        if (slotIndex !== undefined) {
+            this.setupSprShadow(maskShadowNode, slotIndex, isBottomList);
+        }
+    }
+
+    /**
+     * 设置sprShadow的坐标和尺寸，使其与sprIcon保持一致
+     * @param maskShadowNode MaskShadow节点
+     * @param slotIndex 切片索引
+     * @param isBottomList 是否为底部列表
+     */
+    private setupSprShadow(maskShadowNode: Node, slotIndex: number, isBottomList: boolean): void {
+        // 查找sprShadow节点
+        const sprShadowNode = maskShadowNode.getChildByName('sprShadow');
+        if (!sprShadowNode) {
+            console.warn(`[UISolvePuzzle] MaskShadow节点无法找到sprShadow子节点`);
+            return;
+        }
+        
+        // 获取sprShadow的UITransform组件
+        const sprShadowUITransform = sprShadowNode.getComponent(UITransform);
+        if (!sprShadowUITransform) {
+            console.warn(`[UISolvePuzzle] sprShadow节点没有UITransform组件`);
+            return;
+        }
+        
+        let sprIconSizeAndPos: { width: number; height: number; offsetX: number; offsetY: number };
+        
+        if (isBottomList) {
+            // 底部列表：使用底部列表的计算方法
+            sprIconSizeAndPos = this.calculateBottomListSprIconSizeAndPosition(slotIndex, this.gridRows);
+        } else {
+            // 非底部列表：使用网格的计算方法
+            sprIconSizeAndPos = this.calculateSprIconSizeAndPosition(slotIndex, this.gridRows, this.gridCols);
+        }
+        
+        // 设置sprShadow的尺寸（与sprIcon相同）
+        sprShadowUITransform.setContentSize(sprIconSizeAndPos.width, sprIconSizeAndPos.height);
+        
+        // 设置sprShadow的位置（与sprIcon相同）
+        sprShadowNode.setPosition(sprIconSizeAndPos.offsetX, sprIconSizeAndPos.offsetY, 0);
+        
+        console.log(`[UISolvePuzzle] sprShadow设置完成 - 切片${slotIndex}, 类型: ${isBottomList ? '底部列表' : '网格'}, 尺寸: ${sprIconSizeAndPos.width}x${sprIconSizeAndPos.height}, 位置: (${sprIconSizeAndPos.offsetX}, ${sprIconSizeAndPos.offsetY})`);
+    }
+
+    /**
+     * 隐藏网格答案切片的MaskShadow节点
+     * @param pieceNode 拼图切片节点
+     */
+    private hideMaskShadowForAnswerPiece(pieceNode: Node): void {
+        // 查找MaskShadow节点
+        const maskShadowNode = pieceNode.getChildByName('MaskShadow');
+        if (!maskShadowNode) {
+            console.warn(`[UISolvePuzzle] 答案切片节点无法找到MaskShadow子节点`);
+            return;
+        }
+        
+        // 隐藏MaskShadow节点
+        maskShadowNode.active = false;
+        
+        console.log(`[UISolvePuzzle] 已隐藏答案切片的MaskShadow节点`);
     }
 
     /**
@@ -1898,6 +2027,10 @@ export class UISolvePuzzle extends Component {
                 const maskSize = this.calculateDynamicMaskSize(sizeInfo.rows, sizeInfo.cols);
                 maskUITransform.setContentSize(maskSize, maskSize);
                 console.log(`[UISolvePuzzle] 已为切片${slotIndex}的Mask设置尺寸: ${maskSize}x${maskSize}`);
+                
+                // 设置MaskShadow（非底部列表）
+                // 设置MaskShadow
+                this.setupMaskShadow(pieceNode, maskNode, maskSpriteFrame, { width: maskSize, height: maskSize }, -8, slotIndex, false);
                 
                 // 设置sprIcon的拼图切片图片和精确尺寸
                 const sprIconSprite = sprIconNode.getComponent(Sprite);
