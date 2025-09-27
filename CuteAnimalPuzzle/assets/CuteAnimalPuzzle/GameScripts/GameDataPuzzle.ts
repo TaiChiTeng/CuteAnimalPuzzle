@@ -38,6 +38,7 @@ export class GameDataPuzzle extends Component {
     private readonly MAX_RETRY_COUNT = 3; // 最大重试次数
     private fileSystemManager: any = null; // 文件系统管理器
     private downloadingUrls: Set<string> = new Set(); // 正在下载的URL集合
+    private _currentPuzzleGroupIndex: number = 0; // 当前选择的拼图组索引
     
     // 下载的URL前缀
     private readonly URL_PREFIX = 'https://cdn.jsdelivr.net/gh/TaiChiTeng/CuteAnimalPuzzle@master/';
@@ -946,6 +947,39 @@ export class GameDataPuzzle extends Component {
         }
         
         console.log(`[GameDataPuzzle] 拼图组 ${groupId} 预加载完成`);
+    }
+
+    // ========== 当前拼图组索引管理 ==========
+    
+    /**
+     * 获取当前选择的拼图组索引
+     */
+    public getCurrentPuzzleGroupIndex(): number {
+        return this._currentPuzzleGroupIndex;
+    }
+    
+    /**
+     * 设置当前选择的拼图组索引
+     */
+    public setCurrentPuzzleGroupIndex(groupIndex: number): void {
+        console.log(`[GameDataPuzzle] 设置当前拼图组索引: ${groupIndex}`);
+        this._currentPuzzleGroupIndex = groupIndex;
+    }
+    
+    /**
+     * 根据拼图ID设置当前拼图组索引
+     */
+    public setCurrentPuzzleGroupIndexByPuzzleId(puzzleId: number): void {
+        const groupId = this.getPuzzleGroupId(puzzleId);
+        const allGroupIds = this.getAllGroupIds();
+        const groupIndex = allGroupIds.indexOf(groupId);
+        
+        if (groupIndex !== -1) {
+            this.setCurrentPuzzleGroupIndex(groupIndex);
+            console.log(`[GameDataPuzzle] 根据拼图ID ${puzzleId} 设置拼图组索引: ${groupIndex} (组ID: ${groupId})`);
+        } else {
+            console.warn(`[GameDataPuzzle] 无法找到拼图ID ${puzzleId} 对应的组索引，组ID: ${groupId}`);
+        }
     }
 
     update(deltaTime: number) {

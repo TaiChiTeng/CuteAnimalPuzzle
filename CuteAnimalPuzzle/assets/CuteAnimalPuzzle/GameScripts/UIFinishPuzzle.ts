@@ -49,8 +49,11 @@ export class UIFinishPuzzle extends Component {
         console.log('[UIFinishPuzzle] 点击返回选择拼图界面按钮');
         
         if (this.uiManager) {
-            console.log('[UIFinishPuzzle] 准备切换到选择拼图界面');
-            this.uiManager.showSelectPuzzleOnly();
+            console.log('[UIFinishPuzzle] 准备切换到难度和拼图选择界面');
+            // 获取当前拼图组索引，返回到对应的难度和拼图选择界面
+            const gameData = GameDataPuzzle.instance;
+            const currentGroupIndex = gameData ? gameData.getCurrentPuzzleGroupIndex() : 0;
+            this.uiManager.showSelectDifAndPuzzleOnly(currentGroupIndex);
         } else {
             console.error('[UIFinishPuzzle] UIManager未初始化，无法切换界面');
         }

@@ -1,6 +1,8 @@
 import { _decorator, Component, Prefab, Node, Button } from 'cc';
 import { UIMainMenu } from './UIMainMenu';
 import { UISelectPuzzle } from './UISelectPuzzle';
+import { UISelectPuzzleGroup } from './UISelectPuzzleGroup';
+import { UISelectDifAndPuzzle } from './UISelectDifAndPuzzle';
 import { UISolvePuzzle } from './UISolvePuzzle';
 import { UIFinishPuzzle } from './UIFinishPuzzle';
 import { GameDataPuzzle } from './GameDataPuzzle';
@@ -22,7 +24,7 @@ export class UIManager extends Component {
     @property(Prefab)
     public itemSelectPuzzle: Prefab = null; 
 
-    // 选择拼图和难度界面
+    // 选择拼图和难度界面（原有界面，保留兼容性）
     // UISelectPuzzle/btnBack：点击返回主菜单界面
     // UISelectPuzzle/ToggleGroup/Toggle1：点击标记为9张拼图难度
     // UISelectPuzzle/ToggleGroup/Toggle2：点击标记为16张拼图难度
@@ -32,6 +34,26 @@ export class UIManager extends Component {
     public UISelectPuzzle: Node = null;
     
     private uiSelectPuzzle: UISelectPuzzle = null;
+
+    // 选择拼图组界面（新增）
+    // UISelectPuzzleGroup/btnBack：点击返回主菜单界面
+    // UISelectPuzzleGroup/puzzleGroupScrollView：拼图组滚动视图
+    // UISelectPuzzleGroup/itemPuzzleGroupPrefab：拼图组项预制体
+    @property(Node)
+    public UISelectPuzzleGroup: Node = null;
+    
+    private uiSelectPuzzleGroup: UISelectPuzzleGroup = null;
+
+    // 选择难度和拼图界面（新增）
+    // UISelectDifAndPuzzle/btnBack：点击返回拼图组选择界面
+    // UISelectDifAndPuzzle/ToggleGroup/Toggle1：点击标记为9张拼图难度
+    // UISelectDifAndPuzzle/ToggleGroup/Toggle2：点击标记为16张拼图难度
+    // UISelectDifAndPuzzle/ToggleGroup/Toggle3：点击标记为25张拼图难度
+    // UISelectDifAndPuzzle/ScrollView/view/content/itemSelectPuzzleX~itemSelectPuzzleY：点击根据拼图和难度，打开解决拼图界面
+    @property(Node)
+    public UISelectDifAndPuzzle: Node = null;
+    
+    private uiSelectDifAndPuzzle: UISelectDifAndPuzzle = null;
 
     // 解决拼图界面
     // UISolvePuzzle/btnBack：点击返回选择拼图和难度界面
@@ -65,6 +87,24 @@ export class UIManager extends Component {
     public soundOffIconSelectPuzzle: Node = null;
 
     @property(Button)
+    public btnSoundSelectPuzzleGroup: Button = null;
+
+    @property(Node)
+    public soundOnIconSelectPuzzleGroup: Node = null;
+
+    @property(Node)
+    public soundOffIconSelectPuzzleGroup: Node = null;
+
+    @property(Button)
+    public btnSoundSelectDifAndPuzzle: Button = null;
+
+    @property(Node)
+    public soundOnIconSelectDifAndPuzzle: Node = null;
+
+    @property(Node)
+    public soundOffIconSelectDifAndPuzzle: Node = null;
+
+    @property(Button)
     public btnSoundSolvePuzzle: Button = null;
 
     @property(Node)
@@ -77,6 +117,8 @@ export class UIManager extends Component {
         // 获取UI组件引用
         this.uiMainMenu = this.UIMainMenu?.getComponent(UIMainMenu);
         this.uiSelectPuzzle = this.UISelectPuzzle?.getComponent(UISelectPuzzle);
+        this.uiSelectPuzzleGroup = this.UISelectPuzzleGroup?.getComponent(UISelectPuzzleGroup);
+        this.uiSelectDifAndPuzzle = this.UISelectDifAndPuzzle?.getComponent(UISelectDifAndPuzzle);
         this.uiSolvePuzzle = this.UISolvePuzzle?.getComponent(UISolvePuzzle);
         this.uiFinishPuzzle = this.UIFinishPuzzle?.getComponent(UIFinishPuzzle);
         
@@ -94,7 +136,9 @@ export class UIManager extends Component {
     // 显示主菜单，隐藏其他界面
     public showMainMenuOnly(): void {
         this.UIMainMenu.active = true;
-        this.UISelectPuzzle.active = false;
+        // this.UISelectPuzzle.active = false;
+        this.UISelectPuzzleGroup.active = false;
+        this.UISelectDifAndPuzzle.active = false;
         this.UISolvePuzzle.active = false;
         this.UIFinishPuzzle.active = false;
         
@@ -107,10 +151,12 @@ export class UIManager extends Component {
         this.updateAllSoundButtonStates();
     }
 
-    // 显示选择拼图和难度界面，隐藏其他界面
+    // 显示选择拼图和难度界面，隐藏其他界面（保留兼容性）
     public showSelectPuzzleOnly(): void {
         this.UISelectPuzzle.active = true;
         this.UIMainMenu.active = false;
+        this.UISelectPuzzleGroup.active = false;
+        this.UISelectDifAndPuzzle.active = false;
         this.UISolvePuzzle.active = false;
         this.UIFinishPuzzle.active = false;
         
@@ -122,11 +168,49 @@ export class UIManager extends Component {
         // 更新声音按钮状态
         this.updateAllSoundButtonStates();
     }
+
+    // 显示选择拼图组界面，隐藏其他界面（新增）
+    public showSelectPuzzleGroupOnly(): void {
+        this.UISelectPuzzleGroup.active = true;
+        this.UIMainMenu.active = false;
+        this.UISelectPuzzle.active = false;
+        this.UISelectDifAndPuzzle.active = false;
+        this.UISolvePuzzle.active = false;
+        this.UIFinishPuzzle.active = false;
+        
+        // 调用界面显示回调
+        if (this.uiSelectPuzzleGroup) {
+            this.uiSelectPuzzleGroup.onShow();
+        }
+        
+        // 更新声音按钮状态
+        this.updateAllSoundButtonStates();
+    }
+
+    // 显示选择难度和拼图界面，隐藏其他界面（新增）
+    public showSelectDifAndPuzzleOnly(groupIndex: number = 0): void {
+        this.UISelectDifAndPuzzle.active = true;
+        this.UIMainMenu.active = false;
+        this.UISelectPuzzle.active = false;
+        this.UISelectPuzzleGroup.active = false;
+        this.UISolvePuzzle.active = false;
+        this.UIFinishPuzzle.active = false;
+        
+        // 调用界面显示回调
+        if (this.uiSelectDifAndPuzzle) {
+            this.uiSelectDifAndPuzzle.onShow(groupIndex);
+        }
+        
+        // 更新声音按钮状态
+        this.updateAllSoundButtonStates();
+    }
     // 显示解决拼图界面，隐藏其他界面
     public showSolvePuzzleOnly(): void {
         this.UISolvePuzzle.active = true;
         this.UIMainMenu.active = false;
         this.UISelectPuzzle.active = false;
+        this.UISelectPuzzleGroup.active = false;
+        this.UISelectDifAndPuzzle.active = false;
         this.UIFinishPuzzle.active = false;
         
         // 调用界面显示回调
@@ -144,6 +228,8 @@ export class UIManager extends Component {
         this.UISolvePuzzle.active = false;
         this.UIMainMenu.active = false;
         this.UISelectPuzzle.active = false;
+        this.UISelectPuzzleGroup.active = false;
+        this.UISelectDifAndPuzzle.active = false;
         
         // 调用界面显示回调
         if (this.uiFinishPuzzle) {
@@ -161,8 +247,14 @@ export class UIManager extends Component {
         // 主菜单声音按钮
         this.btnSoundMainMenu?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
         
-        // 选择拼图界面声音按钮
+        // 选择拼图界面声音按钮（原有）
         this.btnSoundSelectPuzzle?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
+        
+        // 选择拼图组界面声音按钮（新增）
+        this.btnSoundSelectPuzzleGroup?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
+        
+        // 选择难度和拼图界面声音按钮（新增）
+        this.btnSoundSelectDifAndPuzzle?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
         
         // 解决拼图界面声音按钮
         this.btnSoundSolvePuzzle?.node.on(Button.EventType.CLICK, this.onSoundButtonClick, this);
@@ -216,8 +308,14 @@ export class UIManager extends Component {
         // 更新主菜单声音按钮状态
         this.updateSoundButtonState(this.soundOnIconMainMenu, this.soundOffIconMainMenu, soundEnabled);
         
-        // 更新选择拼图界面声音按钮状态
+        // 更新选择拼图界面声音按钮状态（原有）
         this.updateSoundButtonState(this.soundOnIconSelectPuzzle, this.soundOffIconSelectPuzzle, soundEnabled);
+        
+        // 更新选择拼图组界面声音按钮状态（新增）
+        this.updateSoundButtonState(this.soundOnIconSelectPuzzleGroup, this.soundOffIconSelectPuzzleGroup, soundEnabled);
+        
+        // 更新选择难度和拼图界面声音按钮状态（新增）
+        this.updateSoundButtonState(this.soundOnIconSelectDifAndPuzzle, this.soundOffIconSelectDifAndPuzzle, soundEnabled);
         
         // 更新解决拼图界面声音按钮状态
         this.updateSoundButtonState(this.soundOnIconSolvePuzzle, this.soundOffIconSolvePuzzle, soundEnabled);

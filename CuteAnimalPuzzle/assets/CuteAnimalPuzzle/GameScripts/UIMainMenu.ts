@@ -35,8 +35,8 @@ export class UIMainMenu extends Component {
         console.log('[UIMainMenu] UIManager实例状态:', this.uiManager ? '已初始化' : '未初始化');
         
         if (this.uiManager) {
-            console.log('[UIMainMenu] 准备切换到选择拼图界面');
-            this.uiManager.showSelectPuzzleOnly();
+            console.log('[UIMainMenu] 准备切换到拼图组选择界面');
+            this.uiManager.showSelectPuzzleGroupOnly();
         } else {
             console.error('[UIMainMenu] UIManager未初始化，无法切换界面');
         }
