@@ -290,37 +290,56 @@ export class UISelectPuzzleGroup extends Component {
             return;
         }
         
-        // 查找拼图组项的子节点
+        // 查找拼图组项的子节点（参考UISelectPuzzle.ts的正确实现）
         const btnPuzzleGroup = puzzleGroupItem.getComponent(Button);
-        const sprPuzzleGroup = puzzleGroupItem.getChildByName('sprPuzzleGroup')?.getComponent(Sprite);
+        
+        // 获取该组的拼图ID列表
+        const puzzleIds = gameData.getPuzzleIdsByGroup(groupId);
         
         console.log(`[UISelectPuzzleGroup] 拼图组项 ${groupId} 子节点检查:`);
         console.log(`  - Button组件: ${btnPuzzleGroup ? '找到' : '未找到'}`);
-        console.log(`  - sprPuzzleGroup节点: ${sprPuzzleGroup ? '找到' : '未找到'}`);
         
-        // 获取该组的第一张拼图作为组的代表图片
-        const puzzleIds = gameData.getPuzzleIdsByGroup(groupId);
-        let representativePuzzleId: number | null = null;
-        
-        // 找到第一张可用的图片作为代表
-        for (const puzzleId of puzzleIds) {
-            const spriteFrame = resourceManager.getPuzzleSpriteFrame(puzzleId);
-            if (spriteFrame) {
-                representativePuzzleId = puzzleId;
-                break;
-            }
-        }
-        
-        if (representativePuzzleId !== null && sprPuzzleGroup) {
-            const spriteFrame = resourceManager.getPuzzleSpriteFrame(representativePuzzleId);
-            if (spriteFrame) {
-                sprPuzzleGroup.spriteFrame = spriteFrame;
-                console.log(`[UISelectPuzzleGroup] 拼图组 ${groupId} 设置代表图片成功，使用拼图ID: ${representativePuzzleId}`);
+        // 查找正确的节点路径：itemPuzzleShow1 -> sprPuzzle1
+        const showNode1 = puzzleGroupItem.getChildByName('itemPuzzleShow1');
+        if (showNode1) {
+            const spriteNode1 = showNode1.getChildByName('sprPuzzle1');
+            if (spriteNode1) {
+                const sprite1 = spriteNode1.getComponent(Sprite);
+                console.log(`  - itemPuzzleShow1节点: 找到`);
+                console.log(`  - sprPuzzle1节点: ${sprite1 ? '找到' : '未找到'}`);
+                
+                if (sprite1 && puzzleIds.length > 0) {
+                    // 使用第一张拼图作为组的代表图片
+                    const representativePuzzleId = puzzleIds[0];
+                    
+                    // 先尝试同步获取
+                    let spriteFrame = resourceManager.getPuzzleSpriteFrame(representativePuzzleId);
+                    
+                    if (spriteFrame) {
+                        sprite1.spriteFrame = spriteFrame;
+                        console.log(`[UISelectPuzzleGroup] 拼图组 ${groupId} 设置代表图片成功（同步），使用拼图ID: ${representativePuzzleId}`);
+                    } else {
+                        // 如果同步获取失败，尝试异步加载
+                        try {
+                            spriteFrame = await resourceManager.loadPuzzleImageAsync(representativePuzzleId);
+                            if (spriteFrame) {
+                                sprite1.spriteFrame = spriteFrame;
+                                console.log(`[UISelectPuzzleGroup] 拼图组 ${groupId} 设置代表图片成功（异步），使用拼图ID: ${representativePuzzleId}`);
+                            } else {
+                                console.warn(`[UISelectPuzzleGroup] 拼图组 ${groupId} 异步加载代表图片失败，拼图ID: ${representativePuzzleId}`);
+                            }
+                        } catch (error) {
+                            console.error(`[UISelectPuzzleGroup] 拼图组 ${groupId} 异步加载代表图片出错，拼图ID: ${representativePuzzleId}`, error);
+                        }
+                    }
+                } else {
+                    console.warn(`[UISelectPuzzleGroup] 拼图组 ${groupId} 没有找到Sprite组件或拼图ID列表为空`);
+                }
             } else {
-                console.warn(`[UISelectPuzzleGroup] 拼图组 ${groupId} 代表图片加载失败，拼图ID: ${representativePuzzleId}`);
+                console.error(`[UISelectPuzzleGroup] 拼图组 ${groupId} 未找到sprPuzzle1节点`);
             }
         } else {
-            console.warn(`[UISelectPuzzleGroup] 拼图组 ${groupId} 没有找到可用的代表图片`);
+            console.error(`[UISelectPuzzleGroup] 拼图组 ${groupId} 未找到itemPuzzleShow1节点`);
         }
         
         // 绑定点击事件
