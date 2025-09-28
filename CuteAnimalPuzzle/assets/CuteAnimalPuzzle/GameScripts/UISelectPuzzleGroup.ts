@@ -33,7 +33,7 @@ export class UISelectPuzzleGroup extends Component {
 
     private uiManager: UIManager = null;
     private puzzleGroupItems: Node[] = [];
-    private readonly WAIT_TIME: number = 0.2; // 等待时间（秒）
+    private readonly WAIT_TIME: number = 0.1; // 等待时间（秒）
     private isWaiting: boolean = false; // 是否正在等待
 
     start() {

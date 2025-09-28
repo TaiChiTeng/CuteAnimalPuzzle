@@ -376,6 +376,34 @@ export class GameDataPuzzle extends Component {
         return Array.from(groupIds).sort((a, b) => a - b);
     }
 
+    /**
+     * 检查拼图组的下载状态
+     * @param groupId 拼图组ID
+     * @returns { isFullyDownloaded: boolean, downloadedCount: number, totalCount: number }
+     */
+    public checkGroupDownloadStatus(groupId: number): { isFullyDownloaded: boolean, downloadedCount: number, totalCount: number } {
+        const puzzleIds = this.getPuzzleIdsByGroup(groupId);
+        const totalCount = puzzleIds.length;
+        let downloadedCount = 0;
+        
+        for (const puzzleId of puzzleIds) {
+            const index = puzzleId - 1;
+            const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
+            const hasURL = this.puzzleURL[index] && this.puzzleURL[index].trim() !== '';
+            
+            // 如果有SpriteFrame或者没有URL（表示不需要下载），则认为已下载
+            if (hasSpriteFrame || !hasURL) {
+                downloadedCount++;
+            }
+        }
+        
+        return {
+            isFullyDownloaded: downloadedCount === totalCount,
+            downloadedCount,
+            totalCount
+        };
+    }
+
     // ========== 难度设置相关 ==========
     
     /**

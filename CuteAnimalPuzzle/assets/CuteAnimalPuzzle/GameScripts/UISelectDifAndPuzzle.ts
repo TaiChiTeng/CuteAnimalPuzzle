@@ -48,6 +48,10 @@ export class UISelectDifAndPuzzle extends Component {
     @property(Label)
     public downloadStatusLabel: Label = null;
 
+    // 等待标签，显示加载进度信息
+    @property(Label)
+    public labelWait: Label = null;
+
     private uiManager: UIManager = null;
     private puzzleItems: Node[] = [];
     private currentGroupIndex: number = 0; // 当前选择的拼图组索引
@@ -236,18 +240,39 @@ export class UISelectDifAndPuzzle extends Component {
             this.difficultyToggleParent.active = true;
         }
         
-        // 显示拼图滚动视图
-        if (this.puzzleScrollView) {
-            this.puzzleScrollView.node.active = true;
-        }
-
         // 隐藏下载进度条和状态标签
         this.hideDownloadProgress();
         
-        // 开始下载当前拼图组的图片，然后初始化拼图列表
-        this.downloadAndInitializePuzzleGroup(groupIndex).catch(err => {
-            console.error('[UISelectDifAndPuzzle] 下载和初始化拼图组失败:', err);
-        });
+        // 检查拼图组下载状态
+        const gameData = GameDataPuzzle.instance;
+        if (gameData) {
+            const allGroupIds = gameData.getAllGroupIds();
+            const targetGroupId = allGroupIds[groupIndex] || 0;
+            const downloadStatus = gameData.checkGroupDownloadStatus(targetGroupId);
+            
+            if (downloadStatus.isFullyDownloaded) {
+                // 拼图组已完全下载，直接显示拼图列表
+                console.log(`[UISelectDifAndPuzzle] 拼图组 ${targetGroupId} 已完全下载，直接显示拼图列表`);
+                this.showPuzzleScrollView();
+                this.hideLabelWait();
+                this.initializePuzzleList(groupIndex).catch(err => {
+                    console.error('[UISelectDifAndPuzzle] 初始化拼图列表失败:', err);
+                });
+            } else {
+                // 拼图组未完全下载，显示等待标签并开始下载
+                console.log(`[UISelectDifAndPuzzle] 拼图组 ${targetGroupId} 未完全下载 (${downloadStatus.downloadedCount}/${downloadStatus.totalCount})，开始下载`);
+                this.hidePuzzleScrollView();
+                this.showLabelWait();
+                this.updateLabelWaitText(downloadStatus.downloadedCount, downloadStatus.totalCount);
+                
+                // 开始下载当前拼图组的图片，然后初始化拼图列表
+                this.downloadAndInitializePuzzleGroup(groupIndex).catch(err => {
+                    console.error('[UISelectDifAndPuzzle] 下载和初始化拼图组失败:', err);
+                });
+            }
+        } else {
+            console.error('[UISelectDifAndPuzzle] GameDataPuzzle实例不存在');
+        }
         
         // 声音按钮状态由UIManager统一更新
     }
@@ -276,40 +301,89 @@ export class UISelectDifAndPuzzle extends Component {
             
             console.log(`[UISelectDifAndPuzzle] 开始下载拼图组 ${targetGroupId} (索引: ${groupIndex}) 的图片`);
             
-            // 显示下载进度
-            this.showDownloadProgress();
-            this.updateDownloadStatus(`正在下载拼图组 ${targetGroupId} 的图片...`);
-            
             // 使用新的按组初始化方法，带进度回调
             await gameData.initializePuzzleGroupData(targetGroupId, (current: number, total: number) => {
-                const progress = total > 0 ? current / total : 0;
-                this.updateDownloadProgress(progress);
-                this.updateDownloadStatus(`下载进度: ${current}/${total} (${Math.round(progress * 100)}%)`);
+                // 更新等待标签的进度文本
+                this.updateLabelWaitText(current, total);
                 console.log(`[UISelectDifAndPuzzle] 拼图组 ${targetGroupId} 下载进度: ${current}/${total}`);
             });
             
             console.log(`[UISelectDifAndPuzzle] 拼图组 ${targetGroupId} 下载完成`);
-            this.updateDownloadStatus('下载完成，正在初始化界面...');
             
             // 下载完成后初始化拼图列表
             await this.initializePuzzleList(groupIndex);
             
-            // 隐藏下载进度
-            this.hideDownloadProgress();
+            // 隐藏等待标签，显示拼图滚动视图
+            this.hideLabelWait();
+            this.showPuzzleScrollView();
             
         } catch (error) {
             console.error('[UISelectDifAndPuzzle] 下载拼图组失败:', error);
-            this.updateDownloadStatus('下载失败，请重试');
+            this.updateLabelWaitText(0, 1, '下载失败，请重试');
             
             // 即使下载失败也尝试初始化拼图列表（可能有缓存的图片）
             await this.initializePuzzleList(groupIndex);
             
             // 延迟隐藏错误信息
             setTimeout(() => {
-                this.hideDownloadProgress();
+                this.hideLabelWait();
+                this.showPuzzleScrollView();
             }, 2000);
         } finally {
             this.isDownloading = false;
+        }
+    }
+
+    /**
+     * 显示拼图滚动视图
+     */
+    private showPuzzleScrollView(): void {
+        if (this.puzzleScrollView) {
+            this.puzzleScrollView.node.active = true;
+        }
+    }
+
+    /**
+     * 隐藏拼图滚动视图
+     */
+    private hidePuzzleScrollView(): void {
+        if (this.puzzleScrollView) {
+            this.puzzleScrollView.node.active = false;
+        }
+    }
+
+    /**
+     * 显示等待标签
+     */
+    private showLabelWait(): void {
+        if (this.labelWait) {
+            this.labelWait.node.active = true;
+        }
+    }
+
+    /**
+     * 隐藏等待标签
+     */
+    private hideLabelWait(): void {
+        if (this.labelWait) {
+            this.labelWait.node.active = false;
+        }
+    }
+
+    /**
+     * 更新等待标签的文本
+     * @param current 当前已下载数量
+     * @param total 总数量
+     * @param customText 自定义文本（可选）
+     */
+    private updateLabelWaitText(current: number, total: number, customText?: string): void {
+        if (this.labelWait) {
+            if (customText) {
+                this.labelWait.string = customText;
+            } else {
+                const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+                this.labelWait.string = `加载拼图中:${percentage}%`;
+            }
         }
     }
 
