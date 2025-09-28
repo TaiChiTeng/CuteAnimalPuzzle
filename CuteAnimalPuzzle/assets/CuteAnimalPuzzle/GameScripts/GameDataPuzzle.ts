@@ -495,6 +495,7 @@ export class GameDataPuzzle extends Component {
 
     /**
      * 初始化拼图数据（用于UIMainMenu的加载流程）
+     * @deprecated 建议使用 initializePuzzleGroupData 按组加载
      */
     public async initializePuzzleData(): Promise<void> {
         console.log('[GameDataPuzzle] 开始初始化拼图数据');
@@ -508,6 +509,34 @@ export class GameDataPuzzle extends Component {
         await this.processDynamicPuzzleImages();
         
         console.log('[GameDataPuzzle] 拼图数据初始化完成');
+    }
+
+    /**
+     * 初始化指定拼图组的数据（用于UISelectDifAndPuzzle的按需加载）
+     * @param groupId 拼图组ID
+     * @param onProgress 进度回调函数 (current: number, total: number) => void
+     */
+    public async initializePuzzleGroupData(groupId: number, onProgress?: (current: number, total: number) => void): Promise<void> {
+        console.log(`[GameDataPuzzle] 开始初始化拼图组 ${groupId} 的数据`);
+        
+        // 确保存档数据已初始化
+        if (!this._saveData) {
+            this.initDefaultData();
+        }
+        
+        // 获取该组的所有拼图ID
+        const puzzleIds = this.getPuzzleIdsByGroup(groupId);
+        if (puzzleIds.length === 0) {
+            console.warn(`[GameDataPuzzle] 拼图组 ${groupId} 没有找到任何拼图`);
+            return;
+        }
+        
+        console.log(`[GameDataPuzzle] 拼图组 ${groupId} 包含 ${puzzleIds.length} 个拼图:`, puzzleIds);
+        
+        // 处理该组的动态图片URL
+        await this.processDynamicPuzzleImagesForGroup(groupId, onProgress);
+        
+        console.log(`[GameDataPuzzle] 拼图组 ${groupId} 数据初始化完成`);
     }
     
     /**
@@ -530,8 +559,63 @@ export class GameDataPuzzle extends Component {
                 try {
                     const spriteFrame = await this.loadImageFromURL(puzzleId, this.puzzleURL[index]);
                     if (spriteFrame) {
+                        this.puzzleSpriteFrames[index] = spriteFrame;
                         console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载成功`);
-                        // 状态已在loadImageFromURL中通过setPuzzleStatusAfterImageLoad设置
+                        
+                        // 设置拼图状态为已解锁（如果之前是不可用状态）
+                        this.setPuzzleStatusAfterImageLoad(puzzleId);
+                    } else {
+                        console.error(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载失败`);
+                    }
+                } catch (error) {
+                    console.error(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载异常:`, error);
+                }
+            } else if (hasSpriteFrame) {
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 使用预设SpriteFrame`);
+                // 设置拼图状态为已解锁（如果之前是不可用状态）
+                this.setPuzzleStatusAfterImageLoad(puzzleId);
+            } else {
+                console.warn(`[GameDataPuzzle] 拼图 ${puzzleId} 既没有预设SpriteFrame也没有URL`);
+            }
+        }
+    }
+
+    /**
+     * 处理指定拼图组的动态拼图图片
+     * @param groupId 拼图组ID
+     * @param onProgress 进度回调函数
+     */
+    private async processDynamicPuzzleImagesForGroup(groupId: number, onProgress?: (current: number, total: number) => void): Promise<void> {
+        const puzzleIds = this.getPuzzleIdsByGroup(groupId);
+        const totalPuzzles = puzzleIds.length;
+        
+        console.log(`[GameDataPuzzle] 开始处理拼图组 ${groupId} 的动态图片，共 ${totalPuzzles} 个拼图`);
+        
+        for (let i = 0; i < puzzleIds.length; i++) {
+            const puzzleId = puzzleIds[i];
+            const index = puzzleId - 1;
+            
+            // 更新进度
+            if (onProgress) {
+                onProgress(i + 1, totalPuzzles);
+            }
+            
+            // 检查是否有预设的SpriteFrame
+            const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
+            const hasURL = this.puzzleURL[index] && this.puzzleURL[index].trim() !== '';
+            
+            if (!hasSpriteFrame && hasURL) {
+                // 没有预设SpriteFrame但有URL，需要动态加载
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要动态加载: ${this.puzzleURL[index]}`);
+                
+                try {
+                    const spriteFrame = await this.loadImageFromURL(puzzleId, this.puzzleURL[index]);
+                    if (spriteFrame) {
+                        this.puzzleSpriteFrames[index] = spriteFrame;
+                        console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载成功`);
+                        
+                        // 设置拼图状态为已解锁（如果之前是不可用状态）
+                        this.setPuzzleStatusAfterImageLoad(puzzleId);
                     } else {
                         console.warn(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载失败`);
                         this.setPuzzleStatus(puzzleId, PuzzleStatus.UNAVAILABLE);
@@ -555,6 +639,8 @@ export class GameDataPuzzle extends Component {
                 });
             }
         }
+        
+        console.log(`[GameDataPuzzle] 拼图组 ${groupId} 的动态图片处理完成`);
     }
 
     /**

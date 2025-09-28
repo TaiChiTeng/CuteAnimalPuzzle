@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Button, Toggle, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, Label } from 'cc';
+import { _decorator, Component, Node, Button, Toggle, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, Label, ProgressBar } from 'cc';
 import { GameDataPuzzle, PuzzleStatus, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
 import { PuzzleResourceManager } from './PuzzleResourceManager';
@@ -40,9 +40,18 @@ export class UISelectDifAndPuzzle extends Component {
     @property(Prefab)
     public itemSelectPuzzlePrefab: Prefab = null;
 
+    // 下载进度条（可选）
+    @property(ProgressBar)
+    public downloadProgressBar: ProgressBar = null;
+
+    // 下载状态标签（可选）
+    @property(Label)
+    public downloadStatusLabel: Label = null;
+
     private uiManager: UIManager = null;
     private puzzleItems: Node[] = [];
     private currentGroupIndex: number = 0; // 当前选择的拼图组索引
+    private isDownloading: boolean = false; // 是否正在下载
 
     start() {
         console.log('[UISelectDifAndPuzzle] start方法被调用，开始初始化');
@@ -231,13 +240,120 @@ export class UISelectDifAndPuzzle extends Component {
         if (this.puzzleScrollView) {
             this.puzzleScrollView.node.active = true;
         }
+
+        // 隐藏下载进度条和状态标签
+        this.hideDownloadProgress();
         
-        // 初始化拼图列表
-        this.initializePuzzleList(groupIndex).catch(err => {
-            console.error('[UISelectDifAndPuzzle] 初始化拼图列表失败:', err);
+        // 开始下载当前拼图组的图片，然后初始化拼图列表
+        this.downloadAndInitializePuzzleGroup(groupIndex).catch(err => {
+            console.error('[UISelectDifAndPuzzle] 下载和初始化拼图组失败:', err);
         });
         
         // 声音按钮状态由UIManager统一更新
+    }
+
+    /**
+     * 下载并初始化拼图组
+     */
+    private async downloadAndInitializePuzzleGroup(groupIndex: number): Promise<void> {
+        if (this.isDownloading) {
+            console.log('[UISelectDifAndPuzzle] 正在下载中，跳过重复下载');
+            return;
+        }
+
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) {
+            console.error('[UISelectDifAndPuzzle] GameDataPuzzle实例不存在');
+            return;
+        }
+
+        try {
+            this.isDownloading = true;
+            
+            // 获取拼图组ID
+            const allGroupIds = gameData.getAllGroupIds();
+            const targetGroupId = allGroupIds[groupIndex] || 0;
+            
+            console.log(`[UISelectDifAndPuzzle] 开始下载拼图组 ${targetGroupId} (索引: ${groupIndex}) 的图片`);
+            
+            // 显示下载进度
+            this.showDownloadProgress();
+            this.updateDownloadStatus(`正在下载拼图组 ${targetGroupId} 的图片...`);
+            
+            // 使用新的按组初始化方法，带进度回调
+            await gameData.initializePuzzleGroupData(targetGroupId, (current: number, total: number) => {
+                const progress = total > 0 ? current / total : 0;
+                this.updateDownloadProgress(progress);
+                this.updateDownloadStatus(`下载进度: ${current}/${total} (${Math.round(progress * 100)}%)`);
+                console.log(`[UISelectDifAndPuzzle] 拼图组 ${targetGroupId} 下载进度: ${current}/${total}`);
+            });
+            
+            console.log(`[UISelectDifAndPuzzle] 拼图组 ${targetGroupId} 下载完成`);
+            this.updateDownloadStatus('下载完成，正在初始化界面...');
+            
+            // 下载完成后初始化拼图列表
+            await this.initializePuzzleList(groupIndex);
+            
+            // 隐藏下载进度
+            this.hideDownloadProgress();
+            
+        } catch (error) {
+            console.error('[UISelectDifAndPuzzle] 下载拼图组失败:', error);
+            this.updateDownloadStatus('下载失败，请重试');
+            
+            // 即使下载失败也尝试初始化拼图列表（可能有缓存的图片）
+            await this.initializePuzzleList(groupIndex);
+            
+            // 延迟隐藏错误信息
+            setTimeout(() => {
+                this.hideDownloadProgress();
+            }, 2000);
+        } finally {
+            this.isDownloading = false;
+        }
+    }
+
+    /**
+     * 显示下载进度
+     */
+    private showDownloadProgress(): void {
+        if (this.downloadProgressBar) {
+            this.downloadProgressBar.node.active = true;
+            this.downloadProgressBar.progress = 0;
+        }
+        if (this.downloadStatusLabel) {
+            this.downloadStatusLabel.node.active = true;
+        }
+    }
+
+    /**
+     * 隐藏下载进度
+     */
+    private hideDownloadProgress(): void {
+        if (this.downloadProgressBar) {
+            this.downloadProgressBar.node.active = false;
+        }
+        if (this.downloadStatusLabel) {
+            this.downloadStatusLabel.node.active = false;
+        }
+    }
+
+    /**
+     * 更新下载进度
+     */
+    private updateDownloadProgress(progress: number): void {
+        if (this.downloadProgressBar) {
+            this.downloadProgressBar.progress = Math.max(0, Math.min(1, progress));
+        }
+    }
+
+    /**
+     * 更新下载状态文本
+     */
+    private updateDownloadStatus(status: string): void {
+        if (this.downloadStatusLabel) {
+            this.downloadStatusLabel.string = status;
+        }
     }
 
     /**
