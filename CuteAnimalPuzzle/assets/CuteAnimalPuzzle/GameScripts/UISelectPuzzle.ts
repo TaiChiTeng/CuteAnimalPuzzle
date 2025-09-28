@@ -1,3 +1,6 @@
+    /**
+     * 已废弃，留着作为参考
+     */
 import { _decorator, Component, Node, Button, Toggle, ScrollView, Prefab, instantiate, Sprite, SpriteFrame, Label } from 'cc';
 import { GameDataPuzzle, PuzzleStatus, PuzzleDifficulty } from './GameDataPuzzle';
 import { UIManager } from './UIManager';
