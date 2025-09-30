@@ -1,4 +1,5 @@
 import { _decorator, Component, sys, SpriteFrame, Enum, assetManager, ImageAsset, Texture2D, CCInteger, CCString } from 'cc';
+import { PuzzleDownloadManager, DownloadTask, DownloadTaskStatus } from './PuzzleDownloadManager';
 const { ccclass, property } = _decorator;
 
 // 声明微信API类型
@@ -37,8 +38,9 @@ export class GameDataPuzzle extends Component {
     private readonly CACHE_DIR = 'puzzle_cache'; // 缓存目录
     private readonly MAX_RETRY_COUNT = 3; // 最大重试次数
     private fileSystemManager: any = null; // 文件系统管理器
-    private downloadingUrls: Set<string> = new Set(); // 正在下载的URL集合
     private _currentPuzzleGroupIndex: number = 0; // 当前选择的拼图组索引
+    private _downloadManager: PuzzleDownloadManager | null = null; // 下载管理器实例
+    private downloadingUrls: Set<string> = new Set(); // 正在下载的URL集合，防止重复下载
     
     // 下载的URL前缀
     private readonly URL_PREFIX = 'https://cdn.jsdelivr.net/gh/TaiChiTeng/CuteAnimalPuzzle@master/';
@@ -80,6 +82,7 @@ export class GameDataPuzzle extends Component {
         if (GameDataPuzzle._instance === null) {
             GameDataPuzzle._instance = this;
             this.initFileSystem();
+            this.initDownloadManager();
             this.loadSaveData();
         } else {
             this.destroy();
@@ -89,6 +92,43 @@ export class GameDataPuzzle extends Component {
     start() {
         // 初始化默认数据
         this.initDefaultData();
+    }
+
+    /**
+     * 初始化下载管理器
+     */
+    private initDownloadManager(): void {
+        try {
+            this._downloadManager = PuzzleDownloadManager.createInstance();
+            if (this._downloadManager) {
+                console.log('[GameDataPuzzle] 下载管理器初始化成功');
+                
+                // 设置全局回调
+                this._downloadManager.setGlobalCompleteCallback((task: DownloadTask, spriteFrame?: SpriteFrame) => {
+                    if (spriteFrame && task.puzzleId) {
+                        // 更新拼图SpriteFrame
+                        const index = task.puzzleId - 1;
+                        if (index >= 0 && index < this.puzzleSpriteFrames.length) {
+                            this.puzzleSpriteFrames[index] = spriteFrame;
+                            console.log(`[GameDataPuzzle] 拼图 ${task.puzzleId} SpriteFrame更新成功`);
+                            
+                            // 设置拼图状态
+                            this.setPuzzleStatusAfterImageLoad(task.puzzleId);
+                        }
+                    }
+                });
+                
+                this._downloadManager.setGlobalErrorCallback((task: DownloadTask, error: string) => {
+                    console.error(`[GameDataPuzzle] 拼图 ${task.puzzleId} 下载失败: ${error}`);
+                    // 设置为不可用状态
+                    this.setPuzzleStatus(task.puzzleId, PuzzleStatus.UNAVAILABLE);
+                });
+            } else {
+                console.error('[GameDataPuzzle] 下载管理器创建失败');
+            }
+        } catch (error) {
+            console.error('[GameDataPuzzle] 下载管理器初始化异常:', error);
+        }
     }
 
     /**
@@ -561,8 +601,8 @@ export class GameDataPuzzle extends Component {
         
         console.log(`[GameDataPuzzle] 拼图组 ${groupId} 包含 ${puzzleIds.length} 个拼图:`, puzzleIds);
         
-        // 处理该组的动态图片URL
-        await this.processDynamicPuzzleImagesForGroup(groupId, onProgress);
+        // 使用下载管理器处理该组的动态图片
+        await this.processDynamicPuzzleImagesForGroupWithManager(groupId, onProgress);
         
         console.log(`[GameDataPuzzle] 拼图组 ${groupId} 数据初始化完成`);
     }
@@ -609,7 +649,128 @@ export class GameDataPuzzle extends Component {
     }
 
     /**
-     * 处理指定拼图组的动态拼图图片
+     * 使用下载管理器处理指定拼图组的动态拼图图片
+     * @param groupId 拼图组ID
+     * @param onProgress 进度回调函数
+     */
+    private async processDynamicPuzzleImagesForGroupWithManager(groupId: number, onProgress?: (current: number, total: number) => void): Promise<void> {
+        if (!this._downloadManager) {
+            console.error('[GameDataPuzzle] 下载管理器未初始化，回退到旧方法');
+            return await this.processDynamicPuzzleImagesForGroup(groupId, onProgress);
+        }
+
+        const puzzleIds = this.getPuzzleIdsByGroup(groupId);
+        const totalPuzzles = puzzleIds.length;
+        let processedCount = 0;
+        
+        console.log(`[GameDataPuzzle] 使用下载管理器处理拼图组 ${groupId} 的动态图片，共 ${totalPuzzles} 个拼图`);
+        
+        // 收集需要下载的任务
+        const downloadTasks: Array<{puzzleId: number, url: string}> = [];
+        
+        for (const puzzleId of puzzleIds) {
+            const index = puzzleId - 1;
+            
+            // 检查是否有预设的SpriteFrame
+            const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
+            const hasURL = this.puzzleURL[index] && this.puzzleURL[index].trim() !== '';
+            
+            if (!hasSpriteFrame && hasURL) {
+                // 构建完整URL
+                const fullUrl = this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + this.puzzleURL[index] + this.PUZZLE_SUFFIX;
+                downloadTasks.push({puzzleId, url: fullUrl});
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要下载: ${fullUrl}`);
+            } else if (!hasSpriteFrame && !hasURL) {
+                // 没有SpriteFrame且没有URL，设置为UNAVAILABLE
+                console.warn(`[GameDataPuzzle] 拼图 ${puzzleId} 既没有预设图片也没有URL，设置为UNAVAILABLE`);
+                this.setPuzzleStatus(puzzleId, PuzzleStatus.UNAVAILABLE);
+                processedCount++;
+                if (onProgress) {
+                    onProgress(processedCount, totalPuzzles);
+                }
+            } else if (hasSpriteFrame) {
+                // 有预设的SpriteFrame
+                this.setPuzzleStatusAfterImageLoad(puzzleId);
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 使用预设图片`);
+                processedCount++;
+                if (onProgress) {
+                    onProgress(processedCount, totalPuzzles);
+                }
+            }
+        }
+        
+        if (downloadTasks.length === 0) {
+            console.log(`[GameDataPuzzle] 拼图组 ${groupId} 没有需要下载的图片`);
+            return;
+        }
+        
+        console.log(`[GameDataPuzzle] 拼图组 ${groupId} 需要下载 ${downloadTasks.length} 个图片`);
+        
+        // 批量添加下载任务
+        const taskConfigs = downloadTasks.map((task, index) => ({
+            puzzleId: task.puzzleId,
+            url: task.url,
+            priority: index, // 按顺序设置优先级
+            groupId: groupId
+        }));
+        
+        const taskIds = this._downloadManager.addBatchDownloadTasks(taskConfigs);
+        console.log(`[GameDataPuzzle] 已添加 ${taskIds.length} 个下载任务`);
+        
+        // 等待所有下载任务完成
+        return new Promise<void>((resolve) => {
+            let completedDownloads = 0;
+            const totalDownloads = downloadTasks.length;
+            
+            // 为每个任务添加完成回调
+            taskIds.forEach((taskId, index) => {
+                if (taskId) {
+                    this._downloadManager!.addTaskCompleteCallback(taskId, (task: DownloadTask) => {
+                        completedDownloads++;
+                        processedCount++;
+                        
+                        console.log(`[GameDataPuzzle] 拼图 ${task.puzzleId} 下载完成 (${completedDownloads}/${totalDownloads})`);
+                        
+                        if (onProgress) {
+                            onProgress(processedCount, totalPuzzles);
+                        }
+                        
+                        // 所有下载任务完成
+                        if (completedDownloads >= totalDownloads) {
+                            console.log(`[GameDataPuzzle] 拼图组 ${groupId} 所有下载任务完成`);
+                            resolve();
+                        }
+                    });
+                    
+                    this._downloadManager!.addTaskErrorCallback(taskId, (task: DownloadTask, error: string) => {
+                        completedDownloads++;
+                        processedCount++;
+                        
+                        console.error(`[GameDataPuzzle] 拼图 ${task.puzzleId} 下载失败: ${error}`);
+                        
+                        if (onProgress) {
+                            onProgress(processedCount, totalPuzzles);
+                        }
+                        
+                        // 即使有失败也要继续
+                        if (completedDownloads >= totalDownloads) {
+                            console.log(`[GameDataPuzzle] 拼图组 ${groupId} 所有下载任务完成（包含失败）`);
+                            resolve();
+                        }
+                    });
+                }
+            });
+            
+            // 如果没有有效的任务ID，直接完成
+            if (taskIds.filter(id => id).length === 0) {
+                console.log(`[GameDataPuzzle] 拼图组 ${groupId} 没有有效的下载任务`);
+                resolve();
+            }
+        });
+    }
+
+    /**
+     * 处理指定拼图组的动态拼图图片（旧方法，作为备用）
      * @param groupId 拼图组ID
      * @param onProgress 进度回调函数
      */
@@ -672,9 +833,50 @@ export class GameDataPuzzle extends Component {
     }
 
     /**
-     * 从URL加载图片并创建SpriteFrame
+     * 从URL加载图片并创建SpriteFrame（使用下载管理器）
      */
     public async loadImageFromURL(puzzleId: number, url: string): Promise<SpriteFrame | null> {
+        if (!this._downloadManager) {
+            console.error('[GameDataPuzzle] 下载管理器未初始化，回退到旧方法');
+            return await this.loadImageFromURLLegacy(puzzleId, url);
+        }
+
+        // 构建完整URL
+        const fullUrl = this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + url + this.PUZZLE_SUFFIX;
+        
+        // 添加下载任务
+        const taskId = this._downloadManager.addDownloadTask(puzzleId, fullUrl, 0);
+        if (!taskId) {
+            console.error(`[GameDataPuzzle] 无法创建下载任务，拼图ID: ${puzzleId}`);
+            return null;
+        }
+
+        // 检查任务状态
+        const task = this._downloadManager.getTaskStatus(taskId);
+        if (task && task.status === DownloadTaskStatus.COMPLETED) {
+            // 任务已完成（可能是缓存）
+            console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 使用已完成的任务`);
+            return this.getPuzzleSpriteFrame(puzzleId);
+        }
+
+        // 等待下载完成
+        return new Promise<SpriteFrame | null>((resolve) => {
+            this._downloadManager!.addTaskCompleteCallback(taskId, (task: DownloadTask, spriteFrame?: SpriteFrame) => {
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 下载完成`);
+                resolve(spriteFrame || null);
+            });
+
+            this._downloadManager!.addTaskErrorCallback(taskId, (task: DownloadTask, error: string) => {
+                console.error(`[GameDataPuzzle] 拼图 ${puzzleId} 下载失败: ${error}`);
+                resolve(null);
+            });
+        });
+    }
+
+    /**
+     * 从URL加载图片并创建SpriteFrame（旧方法，作为备用）
+     */
+    private async loadImageFromURLLegacy(puzzleId: number, url: string): Promise<SpriteFrame | null> {
         // 检查是否已有缓存
         const cachedPath = await this.getCachedImagePath(url);
         if (cachedPath) {
@@ -1093,6 +1295,47 @@ export class GameDataPuzzle extends Component {
             console.log(`[GameDataPuzzle] 根据拼图ID ${puzzleId} 设置拼图组索引: ${groupIndex} (组ID: ${groupId})`);
         } else {
             console.warn(`[GameDataPuzzle] 无法找到拼图ID ${puzzleId} 对应的组索引，组ID: ${groupId}`);
+        }
+    }
+
+    /**
+     * 暂停当前拼图组的下载
+     * @param groupId 拼图组ID
+     */
+    public pauseGroupDownload(groupId: number): void {
+        if (this._downloadManager) {
+            this._downloadManager.pauseGroupDownloads(groupId);
+            console.log(`[GameDataPuzzle] 已暂停拼图组 ${groupId} 的下载任务`);
+        }
+    }
+
+    /**
+     * 继续当前拼图组的下载
+     * @param groupId 拼图组ID
+     */
+    public resumeGroupDownload(groupId: number): void {
+        if (this._downloadManager) {
+            this._downloadManager.resumeGroupDownloads(groupId);
+            console.log(`[GameDataPuzzle] 已继续拼图组 ${groupId} 的下载任务`);
+        }
+    }
+
+    /**
+     * 获取下载管理器状态
+     */
+    public getDownloadManagerStatus(): any {
+        if (this._downloadManager) {
+            return this._downloadManager.getManagerStatus();
+        }
+        return null;
+    }
+
+    /**
+     * 清理下载管理器的已完成任务（释放内存）
+     */
+    public clearDownloadCompletedTasks(): void {
+        if (this._downloadManager) {
+            this._downloadManager.clearCompletedTasks();
         }
     }
 

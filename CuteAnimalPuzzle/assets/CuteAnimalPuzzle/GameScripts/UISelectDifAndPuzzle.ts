@@ -56,6 +56,7 @@ export class UISelectDifAndPuzzle extends Component {
     private puzzleItems: Node[] = [];
     private currentGroupIndex: number = 0; // 当前选择的拼图组索引
     private isDownloading: boolean = false; // 是否正在下载
+    private currentGroupId: number = -1; // 当前正在处理的拼图组ID
 
     start() {
         console.log('[UISelectDifAndPuzzle] start方法被调用，开始初始化');
@@ -93,6 +94,9 @@ export class UISelectDifAndPuzzle extends Component {
     }
 
     onDestroy() {
+        // 暂停当前组的下载任务（不取消，保留下载进度）
+        this.pauseCurrentGroupDownload();
+        
         // 移除事件监听
         this.btnBack?.node.off(Button.EventType.CLICK, this.onBackButtonClick, this);
         this.toggleEasy?.node.off(Toggle.EventType.TOGGLE, this.onDifficultyToggle, this);
@@ -108,6 +112,9 @@ export class UISelectDifAndPuzzle extends Component {
      */
     private onBackButtonClick(): void {
         console.log('[UISelectDifAndPuzzle] 点击返回按钮，返回拼图组选择界面');
+        
+        // 暂停当前组的下载任务（不取消，保留下载进度）
+        this.pauseCurrentGroupDownload();
         
         if (this.uiManager) {
             // 返回到拼图组选择界面
@@ -230,6 +237,26 @@ export class UISelectDifAndPuzzle extends Component {
     public onShow(groupIndex: number = 0): void {
         console.log(`[UISelectDifAndPuzzle] 界面显示，拼图组索引: ${groupIndex}`);
         
+        // 如果切换到不同的组，暂停之前组的下载任务，继续新组的下载任务
+        const gameData = GameDataPuzzle.instance;
+        if (gameData) {
+            const allGroupIds = gameData.getAllGroupIds();
+            const newGroupId = allGroupIds[groupIndex] || 0;
+            
+            if (this.currentGroupId !== -1 && this.currentGroupId !== newGroupId) {
+                console.log(`[UISelectDifAndPuzzle] 切换拼图组，暂停组 ${this.currentGroupId} 的下载任务`);
+                this.pauseCurrentGroupDownload();
+            }
+            
+            this.currentGroupId = newGroupId;
+            
+            // 如果是相同的组，继续之前的下载任务
+            if (this.currentGroupId === newGroupId) {
+                console.log(`[UISelectDifAndPuzzle] 继续拼图组 ${this.currentGroupId} 的下载任务`);
+                this.resumeCurrentGroupDownload();
+            }
+        }
+        
         this.currentGroupIndex = groupIndex;
         
         // 初始化难度切换按钮状态
@@ -244,7 +271,6 @@ export class UISelectDifAndPuzzle extends Component {
         this.hideDownloadProgress();
         
         // 检查拼图组下载状态
-        const gameData = GameDataPuzzle.instance;
         if (gameData) {
             const allGroupIds = gameData.getAllGroupIds();
             const targetGroupId = allGroupIds[groupIndex] || 0;
@@ -660,6 +686,33 @@ export class UISelectDifAndPuzzle extends Component {
         this.puzzleItems.length = 0;
         
         console.log('[UISelectDifAndPuzzle] 拼图项清理完成');
+    }
+
+    /**
+     * 暂停当前组的下载任务
+     */
+    private pauseCurrentGroupDownload(): void {
+        if (this.currentGroupId !== -1) {
+            const gameData = GameDataPuzzle.instance;
+            if (gameData) {
+                console.log(`[UISelectDifAndPuzzle] 暂停拼图组 ${this.currentGroupId} 的下载任务`);
+                gameData.pauseGroupDownload(this.currentGroupId);
+            }
+        }
+        this.isDownloading = false;
+    }
+
+    /**
+     * 继续当前组的下载任务
+     */
+    private resumeCurrentGroupDownload(): void {
+        if (this.currentGroupId !== -1) {
+            const gameData = GameDataPuzzle.instance;
+            if (gameData) {
+                console.log(`[UISelectDifAndPuzzle] 继续拼图组 ${this.currentGroupId} 的下载任务`);
+                gameData.resumeGroupDownload(this.currentGroupId);
+            }
+        }
     }
 
     /**
