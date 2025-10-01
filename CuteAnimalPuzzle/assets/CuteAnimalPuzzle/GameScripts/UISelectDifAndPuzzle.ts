@@ -411,7 +411,7 @@ export class UISelectDifAndPuzzle extends Component {
                 this.labelWait.string = customText;
             } else {
                 const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
-                this.labelWait.string = `加载拼图中:${percentage}%`;
+                this.labelWait.string = `O_O 努力加载拼图中:${percentage}%`;
             }
         }
     }
