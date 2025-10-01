@@ -237,6 +237,9 @@ export class UISelectDifAndPuzzle extends Component {
     public onShow(groupIndex: number = 0): void {
         console.log(`[UISelectDifAndPuzzle] 界面显示，拼图组索引: ${groupIndex}`);
         
+        // 隐藏返回按钮，将在拼图列表初始化完成后显示
+        this.hideBackButton();
+        
         // 如果切换到不同的组，暂停之前组的下载任务，继续新组的下载任务
         const gameData = GameDataPuzzle.instance;
         if (gameData) {
@@ -562,6 +565,9 @@ export class UISelectDifAndPuzzle extends Component {
         }
         
         console.log(`[UISelectDifAndPuzzle] 拼图列表初始化完成！成功创建 ${successCount}/${displayablePuzzleIds.length} 个拼图项`);
+        
+        // 拼图列表初始化完成后显示返回按钮
+        this.showBackButton();
     }
 
     /**
@@ -728,5 +734,25 @@ export class UISelectDifAndPuzzle extends Component {
      */
     public getCurrentGroupIndex(): number {
         return this.currentGroupIndex;
+    }
+
+    /**
+     * 显示返回按钮
+     */
+    private showBackButton(): void {
+        if (this.btnBack && this.btnBack.node) {
+            this.btnBack.node.active = true;
+            console.log('[UISelectDifAndPuzzle] 返回按钮已显示');
+        }
+    }
+
+    /**
+     * 隐藏返回按钮
+     */
+    private hideBackButton(): void {
+        if (this.btnBack && this.btnBack.node) {
+            this.btnBack.node.active = false;
+            console.log('[UISelectDifAndPuzzle] 返回按钮已隐藏');
+        }
     }
 }
