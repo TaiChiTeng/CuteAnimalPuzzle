@@ -67,9 +67,9 @@ export class PuzzleDownloadManager extends Component {
     
     // 配置参数
     private readonly MAX_CONCURRENT_DOWNLOADS = 3;  // 最大并发下载数
-    private readonly MAX_RETRY_COUNT = 3;           // 最大重试次数
-    private readonly RETRY_DELAY_BASE = 1000;       // 重试延迟基数(毫秒)
-    private readonly DOWNLOAD_TIMEOUT = 30000;      // 下载超时时间(毫秒)
+    private readonly MAX_RETRY_COUNT = 1;           // 最大重试次数
+    private readonly RETRY_DELAY_BASE = 150;       // 重试延迟基数(毫秒)
+    private readonly DOWNLOAD_TIMEOUT = 6500;      // 下载超时时间(毫秒)
     private readonly CACHE_DIR = 'puzzle_cache';    // 缓存目录
     
     // 状态管理
