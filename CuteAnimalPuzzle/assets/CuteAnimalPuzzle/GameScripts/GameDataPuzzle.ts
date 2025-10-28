@@ -382,6 +382,20 @@ export class GameDataPuzzle extends Component {
     }
     
     /**
+     * 构建拼图的完整URL
+     * @param puzzleId 拼图ID
+     * @returns 完整的URL，如果没有配置URL则返回空字符串
+     */
+    public buildFullPuzzleURL(puzzleId: number): string {
+        const urlPart = this.getPuzzleURL(puzzleId);
+        if (!urlPart || urlPart.trim() === '') {
+            return '';
+        }
+        
+        return this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + urlPart + this.PUZZLE_SUFFIX;
+    }
+    
+    /**
      * 获取所有拼图组的数量
      */
     public getPuzzleGroupCount(): number {
@@ -676,8 +690,8 @@ export class GameDataPuzzle extends Component {
             const hasURL = this.puzzleURL[index] && this.puzzleURL[index].trim() !== '';
             
             if (!hasSpriteFrame && hasURL) {
-                // 构建完整URL
-                const fullUrl = this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + this.puzzleURL[index] + this.PUZZLE_SUFFIX;
+                // 使用统一的URL构建方法
+                const fullUrl = this.buildFullPuzzleURL(puzzleId);
                 downloadTasks.push({puzzleId, url: fullUrl});
                 console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要下载: ${fullUrl}`);
             } else if (!hasSpriteFrame && !hasURL) {
@@ -841,8 +855,8 @@ export class GameDataPuzzle extends Component {
             return await this.loadImageFromURLLegacy(puzzleId, url);
         }
 
-        // 构建完整URL
-        const fullUrl = this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + url + this.PUZZLE_SUFFIX;
+        // 使用统一的URL构建方法
+        const fullUrl = this.buildFullPuzzleURL(puzzleId);
         
         // 添加下载任务
         const taskId = this._downloadManager.addDownloadTask(puzzleId, fullUrl, 0);
@@ -1022,8 +1036,8 @@ export class GameDataPuzzle extends Component {
             return null;
         }
 
-        // 构建完整的URL用于下载管理
-        const fullUrl = this.URL_PREFIX + this.PUZZLE_DIR + this.PUZZLE_PREFIX + url + this.PUZZLE_SUFFIX;
+        // 使用统一的URL构建方法
+        const fullUrl = this.buildFullPuzzleURL(puzzleId);
 
         // 防止重复下载
         if (this.downloadingUrls.has(fullUrl)) {

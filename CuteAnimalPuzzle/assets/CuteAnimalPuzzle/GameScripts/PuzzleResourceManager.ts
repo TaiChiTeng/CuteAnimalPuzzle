@@ -85,13 +85,13 @@ export class PuzzleResourceManager extends Component {
         }
         
         // 获取URL
-        const urls = gameData.getPuzzleURL(puzzleId);
-        if (!urls || urls.length === 0) {
+        const url = gameData.getPuzzleURL(puzzleId);
+        if (!url || url.trim() === '') {
             return null;
         }
         
         // 创建加载Promise
-        const promise = this.loadImageFromURL(puzzleId, urls[0]);
+        const promise = this.loadImageFromURL(puzzleId, url);
         this.loadingPromises.set(puzzleId, promise);
         
         try {
@@ -116,6 +116,7 @@ export class PuzzleResourceManager extends Component {
         
         try {
             // 使用GameDataPuzzle的新下载和缓存功能
+            // 这里传入的是URL部分，GameDataPuzzle会构建完整URL
             const spriteFrame = await gameData.loadImageFromURL(puzzleId, url);
             
             if (spriteFrame) {

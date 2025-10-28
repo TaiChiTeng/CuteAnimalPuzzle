@@ -179,7 +179,7 @@ export class PuzzleDownloadManager extends Component {
     /**
      * 添加下载任务
      * @param puzzleId 拼图ID
-     * @param url 下载URL
+     * @param url 完整的下载URL
      * @param priority 优先级 (数字越小优先级越高)
      * @param groupId 拼图组ID (可选)
      * @returns 任务ID
@@ -236,7 +236,7 @@ export class PuzzleDownloadManager extends Component {
 
     /**
      * 批量添加下载任务
-     * @param tasks 任务配置数组
+     * @param tasks 任务配置数组，url应该是完整的下载URL
      * @returns 任务ID数组
      */
     public addBatchDownloadTasks(tasks: Array<{puzzleId: number, url: string, priority?: number, groupId?: number}>): string[] {
