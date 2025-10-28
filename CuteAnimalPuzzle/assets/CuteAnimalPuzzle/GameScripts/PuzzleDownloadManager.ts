@@ -1,4 +1,5 @@
 import { _decorator, Component, Node, assetManager, ImageAsset, Texture2D, SpriteFrame, director } from 'cc';
+import { GameDataPuzzle } from './GameDataPuzzle';
 const { ccclass, property } = _decorator;
 
 // 声明微信API类型
@@ -853,46 +854,14 @@ export class PuzzleDownloadManager extends Component {
      * 生成本地路径
      */
     private generateLocalPath(url: string): string {
-        const fileName = this.getFileNameFromUrl(url);
+        const gameData = GameDataPuzzle.instance;
+        if (!gameData) {
+            console.error('[PuzzleDownloadManager] GameDataPuzzle实例不存在');
+            return `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}/default.png`;
+        }
+        
+        const fileName = gameData.getFileNameFromUrl(url);
         return `${wx.env.USER_DATA_PATH}/${this.CACHE_DIR}/${fileName}`;
-    }
-
-    /**
-     * 从URL提取文件名
-     */
-    private getFileNameFromUrl(url: string): string {
-        try {
-            const cleanUrl = url.split('?')[0].split('#')[0];
-            const pathPart = cleanUrl.split('://')[1] || cleanUrl;
-            let fileName = pathPart.split('/').pop() || 'image';
-            
-            if (!fileName.includes('.')) {
-                fileName += '.png';
-            }
-            
-            const hash = this.simpleHash(url);
-            const parts = fileName.split('.');
-            const ext = parts.pop();
-            const name = parts.join('.');
-            
-            return `${name}_${hash}.${ext}`;
-        } catch (error) {
-            const hash = this.simpleHash(url);
-            return `image_${hash}.png`;
-        }
-    }
-
-    /**
-     * 简单哈希函数
-     */
-    private simpleHash(str: string): string {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash).toString(16);
     }
 
     /**

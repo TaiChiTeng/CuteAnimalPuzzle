@@ -1151,9 +1151,9 @@ export class GameDataPuzzle extends Component {
     }
 
     /**
-     * 从URL提取文件名
+     * 从URL提取文件名（公共方法，供其他模块使用）
      */
-    private getFileNameFromUrl(url: string): string {
+    public getFileNameFromUrl(url: string): string {
         // 微信小游戏环境不支持URL对象，使用字符串解析
         try {
             // 移除查询参数和锚点
