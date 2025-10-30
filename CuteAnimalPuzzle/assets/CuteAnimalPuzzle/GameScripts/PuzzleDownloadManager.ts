@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, assetManager, ImageAsset, Texture2D, SpriteFrame, director } from 'cc';
+import { _decorator, Component, Node, assetManager, ImageAsset, Texture2D, SpriteFrame, director, sys } from 'cc';
 import { GameDataPuzzle } from './GameDataPuzzle';
 const { ccclass, property } = _decorator;
 
@@ -87,6 +87,9 @@ export class PuzzleDownloadManager extends Component {
     // 文件系统
     private _fileSystemManager: any = null;
     
+    // 持久化存储
+    private readonly DOWNLOAD_RECORDS_KEY = 'CuteAnimalPuzzle_DownloadRecords';
+    
     // 回调函数
     private _progressCallbacks: Map<string, DownloadProgressCallback[]> = new Map();
     private _completeCallbacks: Map<string, DownloadCompleteCallback[]> = new Map();
@@ -150,6 +153,10 @@ export class PuzzleDownloadManager extends Component {
         if (typeof wx !== 'undefined' && wx.getFileSystemManager) {
             this._fileSystemManager = wx.getFileSystemManager();
             this.ensureCacheDirectory();
+            
+            // 加载下载记录
+            this.loadDownloadRecords();
+            
             this._isInitialized = true;
             console.log('[PuzzleDownloadManager] 文件系统初始化成功');
         } else {
@@ -202,10 +209,22 @@ export class PuzzleDownloadManager extends Component {
         const localPath = this.generateLocalPath(url);
         if (this.isFileExists(localPath)) {
             console.log(`[PuzzleDownloadManager] 拼图 ${puzzleId} 本地缓存已存在: ${localPath}`);
-            // 创建已完成的任务记录
-            const completedTask = this.createCompletedTask(puzzleId, url, localPath, groupId);
-            this._completedTasks.set(completedTask.id, completedTask);
-            return completedTask.id;
+            
+            // 验证文件完整性
+            if (this.validateCachedFile(localPath)) {
+                // 创建已完成的任务记录
+                const completedTask = this.createCompletedTask(puzzleId, url, localPath, groupId);
+                this._completedTasks.set(completedTask.id, completedTask);
+                
+                // 保存记录到持久化存储
+                this.saveDownloadRecords();
+                
+                return completedTask.id;
+            } else {
+                // 文件损坏，删除并重新下载
+                console.warn(`[PuzzleDownloadManager] 缓存文件损坏，删除并重新下载: ${localPath}`);
+                this.deleteCachedFile(localPath);
+            }
         }
 
         // 创建新的下载任务
@@ -643,6 +662,9 @@ export class PuzzleDownloadManager extends Component {
         // 添加到已完成任务
         this._completedTasks.set(task.id, task);
         
+        // 保存记录到持久化存储
+        this.saveDownloadRecords();
+        
         console.log(`[PuzzleDownloadManager] 下载完成: ${task.id}, 拼图ID: ${task.puzzleId}`);
         
         // 加载为SpriteFrame
@@ -943,6 +965,136 @@ export class PuzzleDownloadManager extends Component {
      */
     public clearCompletedTasks(): void {
         this._completedTasks.clear();
+        this.saveDownloadRecords(); // 清理后也要保存
         console.log('[PuzzleDownloadManager] 已清理所有已完成任务记录');
+    }
+
+    // ========== 持久化存储相关方法 ==========
+
+    /**
+     * 保存下载记录到本地存储
+     */
+    private saveDownloadRecords(): void {
+        try {
+            const records = {
+                completedTasks: Array.from(this._completedTasks.entries()),
+                timestamp: Date.now()
+            };
+            const recordsStr = JSON.stringify(records);
+            sys.localStorage.setItem(this.DOWNLOAD_RECORDS_KEY, recordsStr);
+            console.log(`[PuzzleDownloadManager] 已保存 ${this._completedTasks.size} 个下载记录`);
+        } catch (error) {
+            console.error('[PuzzleDownloadManager] 保存下载记录失败:', error);
+        }
+    }
+
+    /**
+     * 从本地存储加载下载记录
+     */
+    private loadDownloadRecords(): void {
+        try {
+            const recordsStr = sys.localStorage.getItem(this.DOWNLOAD_RECORDS_KEY);
+            if (recordsStr) {
+                const records = JSON.parse(recordsStr);
+                
+                // 验证记录格式
+                if (records.completedTasks && Array.isArray(records.completedTasks)) {
+                    this._completedTasks = new Map(records.completedTasks);
+                    
+                    // 验证缓存文件是否仍然存在
+                    this.validateCompletedTasks();
+                    
+                    console.log(`[PuzzleDownloadManager] 恢复了 ${this._completedTasks.size} 个下载记录`);
+                } else {
+                    console.warn('[PuzzleDownloadManager] 下载记录格式不正确，重新初始化');
+                    this._completedTasks.clear();
+                }
+            } else {
+                console.log('[PuzzleDownloadManager] 未找到下载记录，使用空记录');
+            }
+        } catch (error) {
+            console.error('[PuzzleDownloadManager] 加载下载记录失败:', error);
+            this._completedTasks.clear();
+        }
+    }
+
+    /**
+     * 验证已完成任务的缓存文件是否仍然存在
+     */
+    private validateCompletedTasks(): void {
+        const validTasks: [string, DownloadTask][] = [];
+        let invalidCount = 0;
+        
+        for (const [taskId, task] of this._completedTasks) {
+            if (this.isFileExists(task.localPath)) {
+                // 验证文件完整性
+                if (this.validateCachedFile(task.localPath)) {
+                    validTasks.push([taskId, task]);
+                } else {
+                    console.warn(`[PuzzleDownloadManager] 缓存文件损坏，删除记录: ${task.localPath}`);
+                    this.deleteCachedFile(task.localPath);
+                    invalidCount++;
+                }
+            } else {
+                console.warn(`[PuzzleDownloadManager] 缓存文件不存在，删除记录: ${task.localPath}`);
+                invalidCount++;
+            }
+        }
+        
+        // 更新为有效的任务
+        this._completedTasks = new Map(validTasks);
+        
+        if (invalidCount > 0) {
+            console.log(`[PuzzleDownloadManager] 清理了 ${invalidCount} 个无效的下载记录`);
+            // 保存清理后的记录
+            this.saveDownloadRecords();
+        }
+    }
+
+    /**
+     * 验证缓存文件的完整性
+     */
+    private validateCachedFile(filePath: string): boolean {
+        if (!this._fileSystemManager) return false;
+        
+        try {
+            const stats = this._fileSystemManager.statSync(filePath);
+            // 检查文件大小是否合理（大于1KB且小于10MB）
+            const isValidSize = stats.size > 1024 && stats.size < 10 * 1024 * 1024;
+            if (!isValidSize) {
+                console.warn(`[PuzzleDownloadManager] 文件大小异常: ${filePath}, 大小: ${stats.size}字节`);
+            }
+            return isValidSize;
+        } catch (error) {
+            console.warn(`[PuzzleDownloadManager] 验证文件失败: ${filePath}`, error);
+            return false;
+        }
+    }
+
+    /**
+     * 删除损坏的缓存文件
+     */
+    private deleteCachedFile(filePath: string): void {
+        if (!this._fileSystemManager) return;
+        
+        try {
+            this._fileSystemManager.unlinkSync(filePath);
+            console.log(`[PuzzleDownloadManager] 删除损坏的缓存文件: ${filePath}`);
+        } catch (error) {
+            console.error(`[PuzzleDownloadManager] 删除缓存文件失败: ${filePath}`, error);
+        }
+    }
+
+    /**
+     * 清理所有下载记录（包括持久化存储）
+     */
+    public clearAllDownloadRecords(): void {
+        this._completedTasks.clear();
+        try {
+            sys.localStorage.removeItem(this.DOWNLOAD_RECORDS_KEY);
+            console.log('[PuzzleDownloadManager] 已清理所有下载记录和持久化数据');
+        } catch (error) {
+            console.error('[PuzzleDownloadManager] 清理持久化数据失败:', error);
+        }
     }
 }
