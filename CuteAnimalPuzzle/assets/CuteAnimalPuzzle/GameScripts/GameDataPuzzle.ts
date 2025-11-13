@@ -157,7 +157,7 @@ export class GameDataPuzzle extends Component {
                 continue;
             }
 
-            const hasURL = this.getPuzzleURL(puzzleId) && this.getPuzzleURL(puzzleId).trim() !== '';
+            const hasURL = this.getPuzzleURLPart(puzzleId) && this.getPuzzleURLPart(puzzleId).trim() !== '';
             if (!hasURL) {
                 continue;
             }
@@ -459,7 +459,7 @@ export class GameDataPuzzle extends Component {
     /**
      * 获取拼图的URL
      */
-    public getPuzzleURL(puzzleId: number): string {
+    public getPuzzleURLPart(puzzleId: number): string {
         const index = puzzleId - 1; // 转换为数组索引
         return this.puzzleURL[index] || '';
     }
@@ -470,7 +470,7 @@ export class GameDataPuzzle extends Component {
      * @returns 完整的URL，如果没有配置URL则返回空字符串
      */
     public buildFullPuzzleURL(puzzleId: number): string {
-        const urlPart = this.getPuzzleURL(puzzleId);
+        const urlPart = this.getPuzzleURLPart(puzzleId);
         if (!urlPart || urlPart.trim() === '') {
             return '';
         }
@@ -526,7 +526,7 @@ export class GameDataPuzzle extends Component {
         for (const puzzleId of puzzleIds) {
             const index = puzzleId - 1;
             const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
-            const hasURL = this.getPuzzleURL(puzzleId) && this.getPuzzleURL(puzzleId).trim() !== '';
+            const hasURL = this.getPuzzleURLPart(puzzleId) && this.getPuzzleURLPart(puzzleId).trim() !== '';
             
             // 检查是否在下载管理器中已完成
             const isCompletedInManager = this.isPuzzleCompletedInDownloadManager(puzzleId, hasURL);
@@ -786,14 +786,14 @@ export class GameDataPuzzle extends Component {
             
             // 检查是否有预设的SpriteFrame
             const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
-            const hasURL = this.getPuzzleURL(puzzleId) && this.getPuzzleURL(puzzleId).trim() !== '';
+            const hasURL = this.getPuzzleURLPart(puzzleId) && this.getPuzzleURLPart(puzzleId).trim() !== '';
 
             if (!hasSpriteFrame && hasURL) {
                 // 没有预设SpriteFrame但有URL，需要动态加载
-                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要动态加载: ${this.getPuzzleURL(puzzleId)}`);
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要动态加载: ${this.getPuzzleURLPart(puzzleId)}`);
 
                 try {
-                    const spriteFrame = await this.loadImageFromURL(puzzleId, this.getPuzzleURL(puzzleId));
+                    const spriteFrame = await this.loadImageFromURL(puzzleId, this.getPuzzleURLPart(puzzleId));
                     if (spriteFrame) {
                         this.puzzleSpriteFrames[index] = spriteFrame;
                         console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载成功`);
@@ -842,7 +842,7 @@ export class GameDataPuzzle extends Component {
             
             // 检查是否有预设的SpriteFrame
             const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
-            const hasURL = this.getPuzzleURL(puzzleId) && this.getPuzzleURL(puzzleId).trim() !== '';
+            const hasURL = this.getPuzzleURLPart(puzzleId) && this.getPuzzleURLPart(puzzleId).trim() !== '';
             
             if (!hasSpriteFrame && hasURL) {
                 // 使用统一的URL构建方法
@@ -1000,14 +1000,14 @@ export class GameDataPuzzle extends Component {
             
             // 检查是否有预设的SpriteFrame
             const hasSpriteFrame = this.puzzleSpriteFrames[index] && this.puzzleSpriteFrames[index];
-            const hasURL = this.getPuzzleURL(puzzleId) && this.getPuzzleURL(puzzleId).trim() !== '';
+            const hasURL = this.getPuzzleURLPart(puzzleId) && this.getPuzzleURLPart(puzzleId).trim() !== '';
 
             if (!hasSpriteFrame && hasURL) {
                 // 没有预设SpriteFrame但有URL，需要动态加载
-                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要动态加载: ${this.getPuzzleURL(puzzleId)}`);
+                console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 需要动态加载: ${this.getPuzzleURLPart(puzzleId)}`);
 
                 try {
-                    const spriteFrame = await this.loadImageFromURL(puzzleId, this.getPuzzleURL(puzzleId));
+                    const spriteFrame = await this.loadImageFromURL(puzzleId, this.getPuzzleURLPart(puzzleId));
                     if (spriteFrame) {
                         this.puzzleSpriteFrames[index] = spriteFrame;
                         console.log(`[GameDataPuzzle] 拼图 ${puzzleId} 动态加载成功`);
@@ -1209,7 +1209,9 @@ export class GameDataPuzzle extends Component {
      * @returns 缓存图片路径，如果没有缓存则返回null
      */
     public async getPuzzleCachedImagePath(puzzleId: number): Promise<string | null> {
-        const url = this.getPuzzleURL(puzzleId);
+        console.log(`想保存图片，得找下缓存图片路径：拼图id= ${puzzleId} `);
+        const url = this.buildFullPuzzleURL(puzzleId);
+        console.log(`拼图id= ${puzzleId} 的url= ${url}`);
         if (!url || url.trim() === '') {
             // 检查是否有预设SpriteFrame
             const spriteFrame = this.getPuzzleSpriteFrame(puzzleId);
@@ -1454,7 +1456,7 @@ export class GameDataPuzzle extends Component {
         console.log(`[GameDataPuzzle] 开始预加载拼图组 ${groupId} 的图片，共 ${puzzleIds.length} 张`);
         
         for (const puzzleId of puzzleIds) {
-            const url = this.getPuzzleURL(puzzleId);
+            const url = this.getPuzzleURLPart(puzzleId);
             if (url && url.trim() !== '') {
                 try {
                     await this.loadImageFromURL(puzzleId, url);

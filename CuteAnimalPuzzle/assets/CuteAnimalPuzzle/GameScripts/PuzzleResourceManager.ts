@@ -84,8 +84,8 @@ export class PuzzleResourceManager extends Component {
             return await loadingPromise;
         }
         
-        // 获取URL
-        const url = gameData.getPuzzleURL(puzzleId);
+        // 获取URL部分
+        const url = gameData.getPuzzleURLPart(puzzleId);
         if (!url || url.trim() === '') {
             return null;
         }
