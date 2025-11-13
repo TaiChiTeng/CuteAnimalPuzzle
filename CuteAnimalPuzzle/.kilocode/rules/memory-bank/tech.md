@@ -136,6 +136,11 @@ public generatePuzzlePieces(puzzleId: number, rows: number, cols: number): Sprit
 private readonly MAX_CONCURRENT_DOWNLOADS = 3;
 
 private processDownloadQueue(): void {
+    if (this._isPaused || this._isDestroyed) {
+        return;
+    }
+
+    // 检查是否有可用的下载槽位
     const availableSlots = this.MAX_CONCURRENT_DOWNLOADS - this._activeDownloads.size;
     if (availableSlots <= 0) return;
     
@@ -150,16 +155,82 @@ private processDownloadQueue(): void {
 
 #### 重试机制
 ```typescript
+private readonly MAX_RETRY_COUNT = 1;
+private readonly RETRY_DELAY_BASE = 150;
+
 private handleDownloadError(task: DownloadTask, errorMessage: string): void {
+    task.error = errorMessage;
+    
+    // 从活跃下载中移除
+    this._activeDownloads.delete(task.id);
+    
+    // 检查是否需要重试
     if (task.retryCount < this.MAX_RETRY_COUNT) {
         task.retryCount++;
         task.status = DownloadTaskStatus.PENDING;
         
+        // 计算重试延迟
         const delay = this.RETRY_DELAY_BASE * Math.pow(2, task.retryCount - 1);
+        
+        console.log(`任务 ${task.id} 将在 ${delay}ms 后重试 (${task.retryCount}/${this.MAX_RETRY_COUNT})`);
+        
+        // 延迟后重新加入队列
         setTimeout(() => {
-            this._downloadQueue.push(task);
-            this.processDownloadQueue();
+            if (!this._isDestroyed) {
+                this._downloadQueue.push(task);
+                this.sortDownloadQueue();
+                this.processDownloadQueue();
+            }
         }, delay);
+    } else {
+        // 重试次数用尽，标记为失败
+        task.status = DownloadTaskStatus.FAILED;
+        console.error(`任务 ${task.id} 下载失败，重试次数用尽: ${errorMessage}`);
+        this.notifyError(task, errorMessage);
+    }
+    
+    // 继续处理队列
+    this.processDownloadQueue();
+}
+```
+
+#### 持久化存储
+```typescript
+private readonly DOWNLOAD_RECORDS_KEY = 'CuteAnimalPuzzle_DownloadRecords';
+
+private saveDownloadRecords(): void {
+    try {
+        const records = {
+            completedTasks: Array.from(this._completedTasks.entries()),
+            timestamp: Date.now()
+        };
+        const recordsStr = JSON.stringify(records);
+        sys.localStorage.setItem(this.DOWNLOAD_RECORDS_KEY, recordsStr);
+        console.log(`已保存 ${this._completedTasks.size} 个下载记录`);
+    } catch (error) {
+        console.error('保存下载记录失败:', error);
+    }
+}
+
+private loadDownloadRecords(): void {
+    try {
+        const recordsStr = sys.localStorage.getItem(this.DOWNLOAD_RECORDS_KEY);
+        if (recordsStr) {
+            const records = JSON.parse(recordsStr);
+            
+            // 验证记录格式
+            if (records.completedTasks && Array.isArray(records.completedTasks)) {
+                this._completedTasks = new Map(records.completedTasks);
+                
+                // 验证缓存文件是否仍然存在
+                this.validateCompletedTasks();
+                
+                console.log(`恢复了 ${this._completedTasks.size} 个下载记录`);
+            }
+        }
+    } catch (error) {
+        console.error('加载下载记录失败:', error);
+        this._completedTasks.clear();
     }
 }
 ```
@@ -184,6 +255,51 @@ export class AudioMgr {
         director.getScene().addChild(audioMgr);
         director.addPersistRootNode(audioMgr);
         this._audioSource = audioMgr.addComponent(AudioSource);
+    }
+}
+```
+
+#### PuzzleAudio单例实现
+```typescript
+@ccclass('PuzzleAudio')
+export class PuzzleAudio extends Component {
+    private static _instance: PuzzleAudio = null;
+    
+    public static get instance(): PuzzleAudio {
+        return PuzzleAudio._instance;
+    }
+    
+    onLoad() {
+        if (PuzzleAudio._instance === null) {
+            PuzzleAudio._instance = this;
+            // 初始化音频资源
+            this.initAudioResources();
+        } else {
+            this.destroy();
+        }
+    }
+    
+    private initAudioResources(): void {
+        // 初始化按钮点击音效、拼图放置音效、完成庆祝音效等
+        this.buttonClickSound = this.audioClipButton;
+        this.puzzlePlaceSound = this.audioClipPuzzlePlace;
+        this.puzzleCompleteSound = this.audioClipComplete;
+        this.backgroundMusic = this.audioClipBgm;
+    }
+    
+    public playButtonClickSound(): void {
+        if (this.getSoundEnabled()) {
+            AudioMgr.inst.playOneShot(this.buttonClickSound);
+        }
+    }
+    
+    public onSoundStateChanged(enabled: boolean): void {
+        // 处理音频状态变化
+        if (!enabled) {
+            AudioMgr.inst.stop();
+        } else {
+            this.playBackgroundMusic();
+        }
     }
 }
 ```
@@ -379,3 +495,125 @@ export class UINewFeature extends Component {
 - 引入状态管理库
 - 添加自动化测试
 - 实现热更新机制
+
+## 已知技术问题
+
+### 1. 图片下载问题
+- 部分环境下图片下载失败
+- 需要优化网络检测和错误处理
+- 建议添加版本文件检测机制
+
+### 2. 拼图切片黑线问题
+- 拼图切片之间存在黑线
+- 可能是遮罩或切片算法问题
+- 需要检查切片生成逻辑
+
+### 3. 拖拽体验优化
+- 手机端拖拽需要Y轴自动偏移约150像素
+- 当前拖拽体验不够流畅
+- 需要优化触摸事件处理
+
+### 4. 分享功能优化
+- 当前分享使用屏幕截图
+- 应改为直接使用图片URL
+- 需要优化分享机制
+
+### 5. 拼图进度保存
+- 当前只保存完成状态
+- 需要保存当前拼图的位置状态
+- 实现更细粒度的进度管理
+
+### 6. 下载管理优化
+- 下载任务持久化可能存在数据丢失风险
+- 需要优化文件完整性验证
+- 下载队列管理可以更加高效
+
+## 技术解决方案
+
+### 1. 图片下载优化方案
+```typescript
+// 建议的版本检测机制
+private async checkVersionAndDownload(): Promise<void> {
+    try {
+        const versionResponse = await fetch(this.VERSION_URL);
+        const versionData = await versionResponse.json();
+        
+        if (versionData.version > this.currentVersion) {
+            // 下载新版本资源
+            await this.downloadNewResources(versionData.resources);
+        }
+    } catch (error) {
+        console.error('版本检查失败:', error);
+        // 使用离线模式
+        this.enableOfflineMode();
+    }
+}
+```
+
+### 2. 拼图切片黑线修复
+```typescript
+// 建议的切片生成优化
+private generatePuzzlePiecesOptimized(puzzleId: number, rows: number, cols: number): SpriteFrame[] {
+    // 增加边缘重叠处理
+    const overlap = 1; // 1像素重叠
+    const pieceWidth = (texture.width + overlap * (cols - 1)) / cols;
+    const pieceHeight = (texture.height + overlap * (rows - 1)) / rows;
+    
+    // 生成切片时考虑重叠区域
+    // ...
+}
+```
+
+### 3. 拖拽体验优化
+```typescript
+// 建议的拖拽优化
+private optimizeDragForMobile(): void {
+    if (this.isMobile()) {
+        // 手机端Y轴自动偏移
+        this.dragOffsetY = 150;
+        
+        // 优化触摸响应
+        this.touchThreshold = 10;
+    }
+}
+```
+
+### 4. 分享功能优化
+```typescript
+// 建议的分享优化
+private async shareWithDirectImage(): Promise<void> {
+    try {
+        const imageUrl = await this.getPuzzleImageUrl();
+        wx.shareAppMessage({
+            title: '我完成了一个可爱动物拼图！',
+            imageUrl: imageUrl // 直接使用图片URL
+        });
+    } catch (error) {
+        console.error('分享失败:', error);
+        // 降级到屏幕截图
+        this.shareWithScreenshot();
+    }
+}
+```
+
+### 5. 拼图进度保存
+```typescript
+// 建议的进度保存机制
+interface PuzzleProgress {
+    puzzleId: number;
+    piecePositions: { [pieceIndex: number]: { x: number, y: number } };
+    completedPieces: number[];
+    timestamp: number;
+}
+
+private savePuzzleProgress(): void {
+    const progress: PuzzleProgress = {
+        puzzleId: this.currentPuzzleId,
+        piecePositions: this.getPiecePositions(),
+        completedPieces: this.getCompletedPieces(),
+        timestamp: Date.now()
+    };
+    
+    // 保存到本地存储
+    sys.localStorage.setItem(`puzzle_progress_${this.currentPuzzleId}`, JSON.stringify(progress));
+}
