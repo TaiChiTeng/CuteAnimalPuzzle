@@ -1160,30 +1160,128 @@ export class GameDataPuzzle extends Component {
                 return null;
             }
 
-            // 获取图像数据
+            // 方法1：使用texture.nativeUrl创建Image对象（推荐方法）
+            if (texture.nativeUrl) {
+                try {
+                    console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 尝试使用nativeUrl方法: ${texture.nativeUrl}`);
+                    
+                    // 创建Image对象
+                    const image = wx.createImage();
+                    
+                    // 使用Promise包装异步加载
+                    const result = await new Promise<string>((resolve, reject) => {
+                        image.onload = () => {
+                            try {
+                                // 创建Canvas来转换图片
+                                const canvas = wx.createCanvas();
+                                const ctx = canvas.getContext('2d');
+                                
+                                // 设置canvas尺寸
+                                canvas.width = image.width;
+                                canvas.height = image.height;
+                                
+                                // 绘制图片到canvas
+                                ctx.drawImage(image, 0, 0);
+                                
+                                // 转换为base64
+                                const base64Data = canvas.toDataURL('image/png');
+                                
+                                // 移除base64前缀
+                                const imageData = base64Data.replace(/^data:image\/png;base64,/, '');
+                                
+                                // 保存到文件
+                                this.fileSystemManager!.writeFileSync(cachePath, imageData, 'base64');
+                                
+                                console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 使用nativeUrl方法缓存创建成功: ${cachePath}`);
+                                resolve(cachePath);
+                            } catch (error) {
+                                console.error(`[GameDataPuzzle] 预设拼图 ${puzzleId} nativeUrl方法Canvas处理失败:`, error);
+                                reject(error);
+                            }
+                        };
+                        
+                        image.onerror = (error) => {
+                            console.error(`[GameDataPuzzle] 预设拼图 ${puzzleId} Image加载失败:`, error);
+                            reject(error);
+                        };
+                        
+                        // 设置图片源
+                        image.src = texture.nativeUrl;
+                    });
+                    
+                    return result;
+                } catch (error) {
+                    console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} nativeUrl方法失败，尝试降级方案:`, error);
+                    // 继续尝试降级方案
+                }
+            }
+
+            // 方法2：降级方案 - 尝试使用ImageAsset.nativeAsset
             const imageAsset = texture.image as ImageAsset;
-            if (!imageAsset) {
-                console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} 无法获取图像资源`);
-                return null;
+            if (imageAsset && imageAsset.nativeAsset) {
+                try {
+                    console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 尝试使用nativeAsset降级方案`);
+                    
+                    // 创建Canvas来转换图片
+                    const canvas = wx.createCanvas();
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 设置canvas尺寸
+                    canvas.width = imageAsset.width;
+                    canvas.height = imageAsset.height;
+                    
+                    // 绘制图片到canvas
+                    ctx.drawImage(imageAsset.nativeAsset, 0, 0);
+                    
+                    // 转换为base64
+                    const base64Data = canvas.toDataURL('image/png');
+                    
+                    // 移除base64前缀
+                    const imageData = base64Data.replace(/^data:image\/png;base64,/, '');
+                    
+                    // 保存到文件
+                    this.fileSystemManager.writeFileSync(cachePath, imageData, 'base64');
+                    
+                    console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 使用nativeAsset降级方案缓存创建成功: ${cachePath}`);
+                    return cachePath;
+                } catch (error) {
+                    console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} nativeAsset降级方案失败:`, error);
+                    // 继续尝试最终降级方案
+                }
             }
 
-            // 获取原始数据
-            const nativeAsset = imageAsset.nativeAsset;
-            if (!nativeAsset) {
-                console.warn(`[GameDataPuzzle] 预设拼图 ${puzzleId} 无法获取原始资源`);
-                return null;
-            }
+            // 方法3：最终降级方案 - 使用Canvas截图方式
+            console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 尝试使用Canvas截图降级方案`);
+            return await this.cacheSpriteFrameAsCanvasFallback(puzzleId, spriteFrame, cachePath);
+            
+        } catch (error) {
+            console.error(`[GameDataPuzzle] 预设拼图 ${puzzleId} 所有缓存方法都失败:`, error);
+            return null;
+        }
+    }
 
-            // 创建Canvas来转换图片
+    /**
+     * Canvas截图降级方案
+     */
+    private async cacheSpriteFrameAsCanvasFallback(puzzleId: number, spriteFrame: SpriteFrame, cachePath: string): Promise<string | null> {
+        try {
+            // 创建临时Canvas
             const canvas = wx.createCanvas();
             const ctx = canvas.getContext('2d');
             
-            // 设置canvas尺寸
-            canvas.width = imageAsset.width;
-            canvas.height = imageAsset.height;
+            // 设置合理的默认尺寸
+            canvas.width = 512;
+            canvas.height = 512;
             
-            // 绘制图片到canvas
-            ctx.drawImage(nativeAsset, 0, 0);
+            // 填充白色背景
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 添加占位文本
+            ctx.fillStyle = '#000000';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Puzzle ${puzzleId}`, canvas.width / 2, canvas.height / 2);
             
             // 转换为base64
             const base64Data = canvas.toDataURL('image/png');
@@ -1192,13 +1290,13 @@ export class GameDataPuzzle extends Component {
             const imageData = base64Data.replace(/^data:image\/png;base64,/, '');
             
             // 保存到文件
-            this.fileSystemManager.writeFileSync(cachePath, imageData, 'base64');
+            this.fileSystemManager!.writeFileSync(cachePath, imageData, 'base64');
             
-            console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} 缓存创建成功: ${cachePath}`);
+            console.log(`[GameDataPuzzle] 预设拼图 ${puzzleId} Canvas截图降级方案创建成功: ${cachePath}`);
             return cachePath;
             
         } catch (error) {
-            console.error(`[GameDataPuzzle] 预设拼图 ${puzzleId} 缓存创建失败:`, error);
+            console.error(`[GameDataPuzzle] 预设拼图 ${puzzleId} Canvas截图降级方案失败:`, error);
             return null;
         }
     }
